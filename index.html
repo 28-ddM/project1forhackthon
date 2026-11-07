@@ -99,6 +99,8 @@ details.ai summary {
 details.ai summary::-webkit-details-marker { display: none; }
 details.ai summary::before { content: "▸ "; }
 details.ai[open] summary::before { content: "▾ "; }
+.ai-sum { font-size: 12px; color: #999; }
+.ai-sum.on { color: #1a7f37; }
 .ai-row { margin-top: 10px; }
 .ai-row label { display: block; font-size: 13px; color: #666; }
 .ai-row select, .ai-row input[type=password], .ai-row input[type=text] {
@@ -106,6 +108,13 @@ details.ai[open] summary::before { content: "▾ "; }
   border: 1px solid #ccc; border-radius: 6px; background: #fff;
 }
 .ai-ck { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; }
+.ai-tip {
+  font-size: 12px; line-height: 1.65; color: #888;
+  margin: 10px 0 0; padding: 8px 10px;
+  background: #f7f7f7; border-radius: 6px;
+}
+.ai-tip a { color: #1a5fb4; }
+.ai-tip code { font-size: 11px; background: #efefef; padding: 1px 4px; border-radius: 3px; }
 .ai-state { font-size: 13px; margin: 10px 0 0; color: #666; }
 .ai-state.on { color: #1a7f37; }
 .ai-state.err { color: #c0392b; }
@@ -142,26 +151,22 @@ details.ai[open] summary::before { content: "▾ "; }
     <p class="hint">Ctrl + Enter 也能分析。数据只存在你自己的浏览器里，不上传。</p>
   </section>
 
-  <!-- AI 增强层：可选。不填 Key 就是纯本地规则，断网也能用 -->
+  <!-- AI 概括层：DeepSeek。不填 Key 就是纯本地规则，断网也能用 -->
   <details class="card ai" id="aibox">
-    <summary>接入 AI（可选 · 不填也能用）</summary>
-    <div class="ai-row">
-      <label>服务商
-        <select id="aiProvider">
-          <option value="deepseek">DeepSeek（deepseek-chat，需充值）</option>
-          <option value="siliconflow">硅基流动（有免费模型）</option>
-          <option value="zhipu">智谱 GLM（glm-4-flash 免费）</option>
-        </select>
-      </label>
-    </div>
+    <summary>AI 概括（DeepSeek）<span class="ai-sum" id="aiSum">· 未接入</span></summary>
+    <p class="ai-tip">
+      去 <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">platform.deepseek.com</a>
+      创建 Key（<code>sk-</code> 开头，需账户有余额，一次分析约几分钱）。<br>
+      Key 只存在你自己的浏览器里，不写进代码、不上传。
+    </p>
     <div class="ai-row">
       <label>API Key
-        <input id="aiKey" type="password" autocomplete="off" placeholder="粘贴你的 Key，例如 sk-...">
+        <input id="aiKey" type="password" autocomplete="off" placeholder="粘贴 sk- 开头的 Key">
       </label>
     </div>
     <div class="row">
       <button id="aiTest">测试连接</button>
-      <label class="ai-ck"><input type="checkbox" id="aiRemember"> 在这台电脑记住</label>
+      <label class="ai-ck"><input type="checkbox" id="aiRemember"> 在这台设备记住</label>
     </div>
     <p class="ai-state" id="aiStatus">当前：本地规则模式。断网可用，但只会「摘句」，不会「概括」。</p>
   </details>
@@ -199,11 +204,11 @@ details.ai[open] summary::before { content: "▾ "; }
   var $copy   = document.getElementById("copy");
   var $wipe   = document.getElementById("wipe");
   var $aiBox  = document.getElementById("aibox");
-  var $aiProv = document.getElementById("aiProvider");
   var $aiKey  = document.getElementById("aiKey");
   var $aiTest = document.getElementById("aiTest");
   var $aiRem  = document.getElementById("aiRemember");
   var $aiStat = document.getElementById("aiStatus");
+  var $aiSum  = document.getElementById("aiSum");
 
   var STORE_INPUT = "deadline-radar:input";     // 输入框草稿
   var STORE_ITEMS = "deadline-radar:items";     // 累积清单（PRD 8. 数据契约）
@@ -692,23 +697,42 @@ details.ai[open] summary::before { content: "▾ "; }
     $ops.style.display = all.length ? "flex" : "none";
   }
 
-  /* ============ AI 增强层（可选） ============
+  /* ============ AI 增强层（DeepSeek） ============
      原则：AI 是增强，不是命脉。
      - 没填 Key：纯规则，断网可用
-     - 填了 Key 但超时/失败/被跨域拦：自动回退规则，界面不报红，只在状态栏说明 */
-  var AI_PROVIDERS = {
-    deepseek:    { name: "DeepSeek",  url: "https://api.deepseek.com/chat/completions",             model: "deepseek-chat" },
-    siliconflow: { name: "硅基流动",  url: "https://api.siliconflow.cn/v1/chat/completions",        model: "Qwen/Qwen2.5-7B-Instruct" },
-    zhipu:       { name: "智谱 GLM",  url: "https://open.bigmodel.cn/api/paas/v4/chat/completions", model: "glm-4-flash" }
+     - 填了 Key 但超时/失败/被跨域拦：自动回退规则，界面不报红，只在状态栏说明
+     模型说明（2026-11 核对官方文档）：
+     - 模型名用 deepseek-flash。旧的 deepseek-chat 已于 2026/07/24 弃用。
+     - deepseek-flash 默认开启思考模式，会让抽取变慢变贵，这里显式关闭。 */
+  var AI = {
+    name: "DeepSeek",
+    url: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-flash"
   };
   var AI_STORE = "deadline-radar:ai";
 
-  function provider() { return AI_PROVIDERS[$aiProv.value] || AI_PROVIDERS.deepseek; }
   function setAiStatus(msg, cls) {
     $aiStat.textContent = msg;
     $aiStat.className = "ai-state" + (cls ? " " + cls : "");
   }
+  /* 折叠状态下一眼看出 AI 通没通，答辩前不用点开面板检查 */
+  function syncAiSum() {
+    var ok = !!($aiKey.value || "").trim();
+    $aiSum.textContent = ok ? "· 已就绪" : "· 未接入，纯本地规则";
+    $aiSum.className = "ai-sum" + (ok ? " on" : "");
+  }
   function ymdCN(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+
+  /* 把 HTTP 状态码翻译成用户能看懂、能自己动手解决的话 */
+  function friendlyErr(status, body) {
+    var b = String(body || "");
+    if (status === 401 || status === 403) return "Key 不对或已失效，去 platform.deepseek.com 重新创建一个";
+    if (status === 402) return "DeepSeek 账户余额不足，去 platform.deepseek.com 充值后再试";
+    if (status === 429) return "请求太频繁或额度用尽，等几十秒再试";
+    if (status === 400 || status === 404) return "请求被拒（HTTP " + status + "）：" + b.replace(/\s+/g, " ").slice(0, 60);
+    if (status >= 500) return "DeepSeek 服务端出错（HTTP " + status + "），稍后再试";
+    return "HTTP " + status + " " + b.replace(/\s+/g, " ").slice(0, 60);
+  }
 
   function aiPrompt(text) {
     return "今天是 " + ymdCN(new Date()) + "。\n" +
@@ -721,24 +745,26 @@ details.ai[open] summary::before { content: "▾ "; }
       "4. materials：真正要提交或携带的东西，字符串数组，没有就 []。不要写「链接」「通知」「材料」。\n" +
       "5. source：最能支撑这条待办的那句原文，原样截取，不要改写。\n" +
       "6. 一句话里有多件事就拆成多条；纯闲聊、通知转发、单纯让人进群、已经明显过期的，不要收录。\n" +
-      "只输出 JSON，不要解释，不要代码块：\n" +
+      "只输出一个 json 对象，不要解释，不要代码块：\n" +
       '{"items":[{"title":"","due":"YYYY-MM-DD","time":"HH:MM","materials":[],"source":""}]}\n\n' +
       "聊天记录：\n" + text;
   }
 
   function callAI(text, key) {
-    var p = provider();
     var ctrl = new AbortController();
     var timer = setTimeout(function () { ctrl.abort(); }, 30000);
-    return fetch(p.url, {
+    return fetch(AI.url, {
       method: "POST",
       signal: ctrl.signal,
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
       body: JSON.stringify({
-        model: p.model,
+        model: AI.model,
         temperature: 0,
+        max_tokens: 4096,
+        response_format: { type: "json_object" },
+        thinking: { type: "disabled" },
         messages: [
-          { role: "system", content: "你是中文信息抽取器，只输出 JSON，不输出任何解释。" },
+          { role: "system", content: "你是中文信息抽取器，只输出 json，不输出任何解释。" },
           { role: "user", content: aiPrompt(text) }
         ]
       })
@@ -746,17 +772,19 @@ details.ai[open] summary::before { content: "▾ "; }
       clearTimeout(timer);
       if (!res.ok) {
         return res.text().then(function (t) {
-          throw new Error("HTTP " + res.status + " " + String(t || "").replace(/\s+/g, " ").slice(0, 70));
+          throw new Error(friendlyErr(res.status, t));
         });
       }
       return res.json();
     }).then(function (data) {
       var s = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (!s) throw new Error("返回内容为空");
+      // JSON 模式下模型偶尔会把无法识别的内容替换成空格，content 可能看起来是空的
+      if (!s || !String(s).trim()) throw new Error("模型这次没返回内容，再点一次就好");
       s = String(s).replace(/```json|```/g, "").trim();
       var i = s.indexOf("{"), j = s.lastIndexOf("}");
       if (i >= 0 && j > i) s = s.slice(i, j + 1);
-      var obj = JSON.parse(s);
+      var obj;
+      try { obj = JSON.parse(s); } catch (e) { throw new Error("模型返回的不是合法 JSON，再点一次就好"); }
       var arr = Array.isArray(obj) ? obj : (obj.items || []);
       return arr.map(function (x) {
         var t = String(x.time || "");
@@ -803,21 +831,22 @@ details.ai[open] summary::before { content: "▾ "; }
     try {
       var c = JSON.parse(localStorage.getItem(AI_STORE) || "null");
       if (c && c.key) {
-        $aiProv.value = c.provider || "deepseek";
         $aiKey.value = c.key;
         $aiRem.checked = true;
-        setAiStatus("已记住 Key，当前：AI 概括 + 规则兜底。", "on");
+        setAiStatus("已记住 Key，当前：AI 概括 + 规则兜底（" + AI.model + "）。", "on");
       }
     } catch (e) {}
+    syncAiSum();
   }
   function saveAiCfg() {
     try {
       if ($aiRem.checked && $aiKey.value.trim()) {
-        localStorage.setItem(AI_STORE, JSON.stringify({ provider: $aiProv.value, key: $aiKey.value.trim() }));
+        localStorage.setItem(AI_STORE, JSON.stringify({ key: $aiKey.value.trim() }));
       } else {
         localStorage.removeItem(AI_STORE);
       }
     } catch (e) {}
+    syncAiSum();
   }
 
   /* ============ 交互 ============ */
@@ -855,7 +884,7 @@ details.ai[open] summary::before { content: "▾ "; }
     $run.textContent = "分析并加入清单";
     if (note) setAiStatus(note, isErr ? "err" : "on");
     if (!fresh.length) {
-      alert("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 在上面「接入 AI」里填一个 Key，让模型帮你概括");
+      alert("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 在上面「AI 概括」里填一个 DeepSeek Key，让模型帮你概括");
       return;
     }
     var added = mergeItems(fresh);
@@ -887,17 +916,19 @@ details.ai[open] summary::before { content: "▾ "; }
     busy = true;
     $run.disabled = true;
     $run.textContent = "AI 分析中…";
-    var p = provider();
     callAI(text, key).then(function (items) {
       saveAiCfg();
       finish(mergeFresh(items, ruleItems),
-        "AI 概括完成：" + items.length + " 条（" + p.name + " · " + p.model + "）", false);
+        "AI 概括完成：" + items.length + " 条（" + AI.name + " · " + AI.model + "）", false);
     }).catch(function (err) {
       finish(ruleItems, "AI 没调通（" + err.message + "），已自动改用本地规则，结果仍然可用。", true);
     });
   }
 
   $run.addEventListener("click", run);
+
+  /* 输入 Key 时标题立刻变「已就绪」，不必等测试 */
+  $aiKey.addEventListener("input", syncAiSum);
 
   $clear.addEventListener("click", function () {
     $input.value = "";
@@ -1026,17 +1057,16 @@ details.ai[open] summary::before { content: "▾ "; }
   $aiTest.addEventListener("click", function () {
     var key = ($aiKey.value || "").trim();
     if (!key) { setAiStatus("先填 Key 再测试。", "err"); $aiKey.focus(); return; }
-    var p = provider();
     $aiTest.disabled = true;
     setAiStatus("测试中…（最多 30 秒）", "");
     callAI("【测试】请于明天下午 3 点前交一份活动总结。", key).then(function (items) {
       $aiTest.disabled = false;
       saveAiCfg();
-      if (!items.length) { setAiStatus("通了，但模型没抽出条目。换个服务商试试。", "err"); return; }
-      setAiStatus("连接成功：" + p.name + " · " + p.model + "，识别到「" + items[0].title + "」。", "on");
+      if (!items.length) { setAiStatus("通了，但模型没抽出条目。再点一次试试。", "err"); return; }
+      setAiStatus("连接成功：" + AI.name + " · " + AI.model + "，识别到「" + items[0].title + "」。", "on");
     }).catch(function (err) {
       $aiTest.disabled = false;
-      setAiStatus("失败：" + err.message + "。可以换一个服务商再试。", "err");
+      setAiStatus("失败：" + err.message, "err");
     });
   });
 
