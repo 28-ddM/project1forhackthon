@@ -443,21 +443,33 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     return out;
   }
 
-  /* ============ 存储：累积清单（PRD 5. 追加不覆盖） ============ */
+  /* ============ 存储：累积清单（PRD 5. 追加不覆盖） ============
+     重要：内存里的 STATE 才是唯一数据源，localStorage 只负责「下次打开还在」。
+     否则一旦浏览器禁用了存储（预览面板的沙箱 iframe、无痕模式、禁 Cookie），
+     写不进去又每次重读 -> 页面永远空白且不报错。 */
+  var STATE = null;
+  var STORAGE_OK = true;
+
   function load() {
     try {
       var raw = localStorage.getItem(STORE_ITEMS);
       var arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr : [];
-    } catch (e) { return []; }
+    } catch (e) { STORAGE_OK = false; return []; }
+  }
+  function current() {
+    if (STATE === null) STATE = load();
+    return STATE;
   }
   function save(list) {
-    try { localStorage.setItem(STORE_ITEMS, JSON.stringify(list)); } catch (e) {}
+    STATE = list;
+    try { localStorage.setItem(STORE_ITEMS, JSON.stringify(list)); }
+    catch (e) { STORAGE_OK = false; }
   }
   function itemKey(x) { return x.title + "|" + (x.due || "") + "|" + (x.time || ""); }
 
   function mergeItems(fresh) {
-    var all = load();
+    var all = current();
     var seen = {};
     all.forEach(function (x) { seen[itemKey(x)] = 1; });
     var added = 0;
@@ -574,7 +586,7 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
   }
 
   function render() {
-    var all = refreshMeta(load());
+    var all = refreshMeta(current());
     var todo = all.filter(function (x) { return !x.done; });
     var done = all.filter(function (x) { return x.done; });
 
@@ -588,6 +600,11 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
       $stats.appendChild(document.createTextNode("清单共 " + all.length + " 条 · "));
       $stats.appendChild(el("b", "", "待办 " + todo.length));
       $stats.appendChild(document.createTextNode(" · 3 天内 " + urgent + (over ? " · 已过期 " + over : "") + " · 已完成 " + done.length));
+    }
+
+    /* 存储不可用时如实提示，而不是假装正常、刷新后悄悄丢数据 */
+    if (!STORAGE_OK) {
+      $stats.textContent += " ｜ 浏览器不允许本地保存，关掉页面后清单会丢";
     }
 
     /* tab 计数 */
@@ -628,7 +645,7 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     if (!btn) return;
     var id = btn.getAttribute("data-id");
     var act = btn.getAttribute("data-act");
-    var all = load();
+    var all = current();
     var i;
     for (i = 0; i < all.length; i++) if (all[i].id === id) break;
     if (i >= all.length) return;
@@ -728,7 +745,7 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
   }
 
   $ics.addEventListener("click", function () {
-    var list = refreshMeta(load()).filter(function (x) { return !x.done && x.due; });
+    var list = refreshMeta(current()).filter(function (x) { return !x.done && x.due; });
     if (!list.length) {
       alert("没有「未完成且写了日期」的条目。先勾掉做完的，或者确认通知里写了截止时间。");
       return;
@@ -777,7 +794,7 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
 
   /* ============ 导出：复制成文本（只复制待办） ============ */
   $copy.addEventListener("click", function () {
-    var list = refreshMeta(load()).filter(function (x) { return !x.done; });
+    var list = refreshMeta(current()).filter(function (x) { return !x.done; });
     if (!list.length) { alert("待办是空的，没有可复制的内容。"); return; }
 
     var btn = $copy;
@@ -806,7 +823,7 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
 
   /* ============ 清空全部 ============ */
   $wipe.addEventListener("click", function () {
-    var n = load().length;
+    var n = current().length;
     if (!n) return;
     if (!confirm("确定清空全部 " + n + " 条清单？这个操作不能撤销。")) return;
     save([]);
