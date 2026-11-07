@@ -181,7 +181,22 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
   function offsetFromMonday(target) { return target === 0 ? 6 : target - 1; }
   function nextMondayDelta(cur) { var x = (8 - cur) % 7; return x === 0 ? 7 : x; }
 
+  /* ============ 区间日期：取「截止」那一端 ============ */
+  // 「11月2日8:00—11月7日24:00」的截止日是 11/7，不是 11/2。
+  // 「11月2日8:00—11月7日24:00」的截止日是 11/7，不是 11/2。
+  var RANGE_RE = /((?:\d{4}\s*年\s*)?\d{1,2}\s*月\s*\d{1,2}\s*[日号]?)(?:\s*\d{1,2}\s*[:：]\s*\d{2})?\s*(?:—|－|–|-|~|～|至|到)\s*((?:\d{4}\s*年\s*)?\d{1,2}\s*月\s*\d{1,2}\s*[日号]?)(\s*\d{1,2}\s*[:：]\s*\d{2})?/;
+  function normalizeRange(text) {
+    var m = text.match(RANGE_RE);
+    if (!m) return text;
+    var end = m[2];
+    if (!/\d{4}/.test(end) && /\d{4}/.test(m[1])) {
+      end = m[1].match(/\d{4}/)[0] + "年" + end;
+    }
+    return text.replace(RANGE_RE, end + (m[3] || ""));
+  }
+
   function parseWhen(text, base) {
+    text = normalizeRange(text);
     var due = null, m;
 
     // 1) 2026年11月13日 / 2026-11-13
@@ -263,7 +278,7 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
         var h = +m[2], mi = m[3] === "半" ? 30 : (m[3] ? +m[3] : 0), ap = m[1] || "";
         if ((ap === "下午" || ap === "晚上") && h < 12) h += 12;
         if (ap === "中午" && h < 12) h += 12;
-        if (h >= 0 && h <= 23 && mi >= 0 && mi <= 59) time = pad(h) + ":" + pad(mi);
+        if (h >= 0 && h <= 24 && mi >= 0 && mi <= 59) time = pad(h) + ":" + pad(mi);
       }
     }
 
@@ -285,12 +300,16 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
 
   /* ============ 标题清洗 ============ */
   function cleanTitle(text) {
-    var s = text.replace(/【[^】]{0,12}】/g, "").trim();
+    var s = text
+      .replace(/【[^】]{0,12}】/g, "")            // 【学工办】这类抬头
+      .replace(/@[^\s，。；：、]{1,12}/g, " ")    // @所有人 @某某
+      .replace(/^[^\u4e00-\u9fa5A-Za-z0-9（(《【]+/, "") // 开头的 emoji / ⏰✅🔹 等符号
+      .trim();
     var prev;
     do {
       prev = s;
       s = s.replace(/^[\s,，。;；:：、]+/, "")
-           .replace(/^(各位同学|同学们|大家|注意|通知|提醒)[:：,，]?/, "")
+           .replace(/^(各位同学|同学们|大家|注意|通知|提醒|请|务必)[:：,，]?/, "")
            .replace(/^关于[^：:]{0,24}[：:]/, "");
     } while (s !== prev);
     if (s.length > 34) s = s.slice(0, 34) + "…";
@@ -298,47 +317,121 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
   }
 
   /* ============ 抽取：文字 → items[]（纯函数，不碰 DOM） ============ */
-  var ACTION_RE = /(请|务必|记得|截止|提交|交|报名|填写|上传|完成|参加|签到|缴纳|领取|报送|反馈)/;
-  var DATE_HINT_RE = /(\d{1,2}\s*月|\d{4}\s*年|\d{1,2}\s*[日号]|今天|明天|后天|本周|这周|下周|周[一二三四五六日天1-7]|星期|礼拜|月底|月末)/;
+  // 出现其一，说明这句在要求「做某件事」
+  var ACTION_RE = /(截止|提交|交|报名|填写|填好|上传|发送|发至|完成|参加|签到|缴纳|缴|领取|报送|反馈|进群|扫码|加入|开会|会议|路演|考试|答题|面试|办理|确认|下载|打印|转发|保存|签字|盖章)/;
+  // 时间线索
+  var DATE_HINT_RE = /(\d{1,2}\s*月|\d{4}\s*年|\d{1,2}\s*[日号]|今天|明天|后天|大后天|本周|这周|下周|下下周|周[一二三四五六日天1-7]|星期|礼拜|月底|月末|这两天|尽快)/;
+  // 这句话本身就在说「什么时候截止」，即使没有动作词也要留下
+  var TIME_SAY_RE = /(时间为|截止|有效期|之前|前完成|前提交|前交)/;
+
+  // 消息头：2026年10月30日 21:06 / 2026-11-02 8:18
+  var HEAD_RE = /^(\d{4})\s*[年\-\/\.]\s*(\d{1,2})\s*[月\-\/\.]\s*(\d{1,2})\s*[日号]?\s+(\d{1,2})\s*[:：]\s*(\d{2})$/;
+
+  function isHead(line) { return HEAD_RE.test(line.trim()); }
+  // 夹在两条消息头之间的纯昵称行（如「魚🐟渝🔒」）
+  function isNick(line) {
+    var l = line.trim();
+    return l.length > 0 && l.length <= 20 && !/[。，；：！？、,;:!?]/.test(l) && !isHead(l);
+  }
+
+  // 按「消息」切块：每块带上发送日期，作为「今天/明天/下周三」的基准。
+  // 这一步是准确率的命门——11 月 4 日发的「今晚 6 点前」，指的是 11/4，不是今天。
+  function splitMessages(text) {
+    var lines = text.split(/\r?\n/);
+    var heads = [], i;
+    for (i = 0; i < lines.length; i++) if (isHead(lines[i])) heads.push(i);
+    if (!heads.length) return [{ sentAt: null, body: lines }];
+
+    var msgs = [];
+    for (i = 0; i < heads.length; i++) {
+      var s = heads[i];
+      var e = (i + 1 < heads.length) ? heads[i + 1] : lines.length;
+      var m = lines[s].trim().match(HEAD_RE);
+      var body = lines.slice(s + 1, e);
+      // 末尾那行是下一条消息的发送人昵称，不属于本条
+      if (body.length && isNick(body[body.length - 1])) body.pop();
+      msgs.push({ sentAt: new Date(+m[1], +m[2] - 1, +m[3]), body: body });
+    }
+    return msgs;
+  }
 
   function extract(text) {
-    var base = startOfDay(new Date());
-    var lines = text.split(/[\n\r]+/);
+    var today = startOfDay(new Date());
+    var msgs = splitMessages(text);
     var items = [];
-    var i, j;
 
-    for (i = 0; i < lines.length; i++) {
-      var line = lines[i].trim();
-      if (!line) continue;
-      var parts = line.split(/[。；;！!？?]/);
-      for (j = 0; j < parts.length; j++) {
-        var p = parts[j].trim();
-        if (!p) continue;
-        if (DATE_HINT_RE.test(p) || ACTION_RE.test(p)) {
-          var when = parseWhen(p, base);
-          var title = cleanTitle(p);
-          if (!title) continue;
-          items.push({
-            title: title,
-            due: when.due,
-            time: when.time,
-            materials: extractMaterials(p),
-            source: p
-          });
-        } else if (items.length) {
-          items[items.length - 1].source += "；" + p;
+    msgs.forEach(function (msg) {
+      var base = msg.sentAt || today;
+      var raw = msg.body.join("\n");
+      if (!raw.trim()) return;
+
+      // ① 去掉链接：URL 里的 t20260313 会被误认成日期
+      var clean = raw.replace(/https?:\/\/[^\s，。；）】"']+/g, " ");
+
+      // ② 切成句子，附件行整行丢掉
+      var segs = [];
+      clean.split(/\n/).forEach(function (line) {
+        var t = line.trim();
+        if (!t) return;
+        if (/^\[(图片|文件|视频|语音|动画表情|表情)\]/.test(t)) return;
+        t.split(/[。；;！!？?]/).forEach(function (p) {
+          p = p.trim();
+          if (p) segs.push(p);
+        });
+      });
+
+      // ③ 这条消息里最适合当标题的那句（用于「时间为：…」这种纯时间句）
+      var msgTitle = "";
+      (function () {
+        for (var k = 0; k < segs.length; k++) {
+          var c = cleanTitle(segs[k]);
+          if (c && c.replace(/[\d\s年月日号:：—\-（）()]/g, "").length >= 8) { msgTitle = c; return; }
         }
-      }
-    }
+      })();
 
-    // 批内去重
+      // ④ 逐句判断，同时满足「说了时间」和「要求做事/在说截止」才收
+      segs.forEach(function (p) {
+        if (p.length < 5) return;
+        var isBareDate = /^\D{0,6}\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日/.test(p) && p.length < 26;
+        if (isBareDate) return;
+
+        var when = parseWhen(p, base);
+        var hasTime = !!(when.due || when.time || DATE_HINT_RE.test(p));
+        if (!hasTime) return;
+        if (!ACTION_RE.test(p) && !TIME_SAY_RE.test(p)) return;
+
+        // 没有日期又极短（「大家尽快完成」），脱离上下文没有意义，丢掉
+        if (!when.due && p.length < 10) return;
+
+        var title = cleanTitle(p);
+        if (!title) return;
+        // 「活动时间为：…」这类纯时间句，换成消息开头那句
+        if (/^(活动)?时间为/.test(title) && msgTitle) title = msgTitle;
+        // 去掉标题开头的日期（下面已经单独显示了日期）
+        var stripped = title
+          .replace(/^\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*[日号]?\s*(\d{1,2}\s*[:：]\s*\d{2})?\s*/, "")
+          .replace(/^\d{1,2}\s*月\s*\d{1,2}\s*[日号]?\s*(\d{1,2}\s*[:：]\s*\d{2})?\s*/, "");
+        if (stripped.length >= 3) title = stripped;
+        title = title.replace(/[，,：:]?(事项如下|通知如下|如下)[：:]?$/, "");
+        if (!title) return;
+        items.push({
+          title: title,
+          due: when.due,
+          time: when.time,
+          materials: extractMaterials(p),
+          source: p
+        });
+      });
+    });
+
+    // ④ 批内去重
     var seen = {}, out = [];
-    for (i = 0; i < items.length; i++) {
-      var key = items[i].title + "|" + items[i].due;
-      if (seen[key]) continue;
+    items.forEach(function (x) {
+      var key = x.title + "|" + x.due;
+      if (seen[key]) return;
       seen[key] = 1;
-      out.push(items[i]);
-    }
+      out.push(x);
+    });
     return out;
   }
 
