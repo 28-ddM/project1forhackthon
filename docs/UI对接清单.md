@@ -20,7 +20,7 @@
 
 **关于 Tailwind CSS**：规范里提到 Tailwind，但项目**没有引入**。原因不是偷懒——Tailwind 走 CDN，断网时样式全部丢失，而这个产品的核心卖点恰恰是「断网也能用」。规范要求的全部效果用原生 CSS 变量就能实现，且保持零依赖、双击就跑。视觉照搬，技术栈不动。
 
-**关于三页结构**：身份选择页 / 工作台 / 日历日程页没有做成三个 HTML 文件。脚本开头是一批 `document.getElementById(...)`，只要某个元素不在那一页，拿到 `null`，后面一执行就整页失效。当前实现是**单文件单页**，所有元素都在同一文档里。如果以后确实要分屏，只能在一个 `index.html` 里用 `<section>` + `display:none` 切换，不要新建第二个 HTML 文件。
+**关于三屏结构**：身份选择页 / 工作台 / 日程周历**已经做成一个 `index.html` 里的三个 `<section>`**（`#screen-role` / `#screen-app` / `#screen-cal`），用 `hidden` 属性切换，顶部 `#topnav` 导航在身份屏隐藏。所有元素仍在同一份文档里，脚本 `getElementById` 全部有效。**不要把任何一屏拆成第二个 HTML 文件**——脚本开头是一批 `getElementById`，元素不在那一页就是 `null`，整页按钮失效。
 
 ---
 
@@ -32,13 +32,17 @@
 
 ### 2. 不要删、不要改名任何 `id`
 
-JS 全靠这些 id 找元素，删一个就是一片功能失效。当前一共 **27 个**：
+JS 全靠这些 id 找元素，删一个就是一片功能失效。当前一共 **45 个**：
 
 ```
-输入区    input  run  clip  clear  sample  pick  file  thumbs  inputCard
-清单区    stats  result  tabs  ops  ics  copy  wipe
-AI 面板   aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
-提示确认  toastWrap  mask  dlgText  dlgYes  dlgNo
+三屏骨架   screen-role  screen-app  screen-cal  topnav
+顶部导航   navRole  navHome  navCal  navGuest
+身份屏     roleGrid  roleGo  rolePrompt  rolePromptBox
+输入区     input  run  clip  clear  sample  pick  file  thumbs  inputCard
+清单区     stats  result  tabs  ops  ics  copy  wipe
+AI 面板    aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
+日历屏     weekBar  weekTitle  weekPrev  weekNext  calFilter  calList
+提示确认   toastWrap  mask  dlgText  dlgYes  dlgNo
 ```
 
 `clip` 是「读取剪贴板」按钮，`toastWrap` / `mask` 那一组是自定义提示与确认框。
@@ -48,19 +52,21 @@ AI 面板   aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
 元素不在 HTML 里，是运行后由脚本创建的。CSS 里改了名字，脚本创建的还是旧名字，样式就套不上：
 
 ```
-.item          每条待办卡片
+.item          每条待办卡片（工作台和日历共用）
 .thumb         截图缩略图
 .tag           材料小标签
-.group-title   分组标题（3天内 / 一周内…）
+.group-title   分组标题（3天内 / 周历里的日期）
 .empty         空状态提示块
 .empty-msg     空状态里的文字
-.mascot        空状态里的引导插图
+.mascot        空状态里的引导插图（工作台、日历各一张）
 .ai-sum        折叠标题上的「已就绪」小字
 .toast         轻提示条
 .dialog        确认框
+.day-cell      周历格（叠 .today 今天 / .pick 选中 / .dim 过去）
+.dots i        周历格下的截止日圆点
 ```
 
-`.item` 还会叠 `g-urgent` / `g-soon` / `g-far` / `g-over` / `g-nodate` 表示紧急程度，这些名字也不能改。**左边框颜色专门留给紧急程度**，hover 只能动另外三条边。
+`.role-card` 在 HTML 里，但它的 `.on` 选中态由脚本切换，别改 `.on` 的名字。`.item` 还会叠 `g-urgent` / `g-soon` / `g-far` / `g-over` / `g-nodate` 表示紧急程度。**左边框颜色专门留给紧急程度**，hover 只能动另外三条边。
 
 ### 4. 不要拆掉 `<details>` / `<summary>` 的折叠结构
 
@@ -160,25 +166,26 @@ AI 面板   aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
 
 1. **危险按钮仍不够区分**：「清空全部清单」和「复制成清单」长得接近，误点代价大。可以只给它换成 `--danger` 描边 + 浅红底，不动结构。
 2. **规则模式的标题还是摘原句**：不填 Key 时标题会带省略号（如「各班班长于本周五 18:00 前将《创新学分汇总表》…」）。这是规则引擎的固有表现，README 里已如实说明；演示时记得填 Key。
-3. **没有真日历网格**：当前是按紧急程度分组的清单，不是月视图。做真的日历组件是另一量级的工作量，不在保底范围内。
+3. **身份卡片没做记忆选中提示**：进过一次工作台后，身份存在本地，下次直接进工作台。想换身份点导航上的「游客」回去重选——这个流程第一次用不一定能发现，可以在导航「游客」上加个换身份的图标或文字（比如「切换身份」）。
 
-之前的两个短板（顶部信息薄、空状态太素）已解决：加了 slogan 与三层文字层级，空状态加了引导插图。
+之前的三个短板（顶部信息薄、空状态太素、三屏结构）已解决。
 
 ---
 
-## 六、改完必须自测这 8 件事
+## 六、改完必须自测这 10 件事
 
 **用手机测，不是电脑。** 电脑上好看不代表手机上好看。
 
-- [ ] 1. 打开页面，标题、slogan、输入框、五个按钮显示正常，**没有横向滚动条**
-- [ ] 2. 清单为空时，虚线框里能看到奶龙引导插图，**周围没有白色方块**
-- [ ] 3. 点「填入示例」→「分析并加入清单」，能出 4~6 条待办
+- [ ] 1. 首次打开是身份选择屏；点「学生」卡片出现暖黄描边和对勾；点「进入工作台」进工作台，导航显示「学生」
+- [ ] 2. 工作台里标题、slogan、输入框、五个按钮显示正常，**没有横向滚动条**；清单为空时虚线框里有奶龙插图，**周围没有白色方块**
+- [ ] 3. 点「填入示例」→「分析并加入清单」，能出 4~6 条待办；教师身份下示例内容会换成教师版
 - [ ] 4. 每条待办左侧竖条颜色不同（红 / 黄 / 绿 / 灰），hover 时左边框颜色**不变**
 - [ ] 5. 点待办的勾选框，能打勾、文字变灰划线；点右侧 `×` 能删掉
 - [ ] 6. 点「图片选取」能调起相册，选图后出现缩略图、能点 `×` 删；一次选超过 6 张会明确提示跳过了几张
 - [ ] 7. 点「读取剪贴板」：https 下能读进输入框；本地 `file://` 不给权限时会提示改用 `Ctrl + V`，**不会假装成功**
-- [ ] 8. 加入几条后点「清空全部清单」，弹出的是**页面中间的白色确认框**，不是系统黑框；点「取消」不会清空
-- [ ] 9. 点「下载日历文件 .ics」能下载（微信里打开会失败，用系统浏览器测）
+- [ ] 8. 导航点「日历」进周历屏：七个日期格、今天高亮、有截止日的格子带彩色圆点；点某天只看那天，再点取消；关键词能过滤；手机上七格**不挤爆、不换行**
+- [ ] 9. 加入几条后点「清空全部清单」，弹出的是**页面中间的白色确认框**，不是系统黑框；点「取消」不会清空
+- [ ] 10. 点「下载日历文件 .ics」能下载（微信里打开会失败，用系统浏览器测）
 
 全过再交回。
 
@@ -210,6 +217,6 @@ git checkout v0.9-保底-手机已验证 -- index.html
 
 ## 八、一句话总结
 
-> **你只管 `<style>` 里的事。`<script>` 一个字都别碰，27 个 id 一个都别删，动态 class 一个都别改名，16px 圆角和 `--shadow-sm` 别破坏。**
+> **你只管 `<style>` 里的事。`<script>` 一个字都别碰，45 个 id 一个都别删，动态 class 一个都别改名，16px 圆角和 `--shadow-sm` 别破坏。**
 
 守住这句，怎么改都不会把功能改坏。
