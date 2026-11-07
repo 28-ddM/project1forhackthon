@@ -8,6 +8,7 @@
 /* ===== 主题变量：lfl 想换风格，只改这一段就够了 ===== */
 :root {
   --ink: #1a1a1a;          /* 主文字、主按钮底色 */
+  --on-ink: #fff;          /* 压在 --ink 上的文字色（做深色主题时这里仍然是浅色） */
   --ink-2: #333;           /* 次一级文字 */
   --muted: #666;           /* 说明文字 */
   --muted-2: #888;         /* 分组标题 */
@@ -67,7 +68,7 @@ button {
 }
 button:hover { border-color: var(--faint); }
 button:disabled { opacity: .45; cursor: default; }
-button.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+button.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .hint { font-size: 13px; color: var(--faint); margin: 8px 0 0; }
 /* 截图缩略图：粘一张就能看一张，粘错了能删 */
 .thumbs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -78,13 +79,13 @@ button.primary { background: var(--ink); color: var(--surface); border-color: va
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb button {
   position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; padding: 0;
-  border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: var(--surface);
+  border: none; border-radius: 50%; background: rgba(0,0,0,.55); color: var(--on-ink);
   font-size: 13px; line-height: 1; cursor: pointer;
 }
 .card.dragging { border-color: var(--ink); background: var(--surface-2); }
 .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .tabs button { font-size: 14px; padding: 7px 12px; }
-.tabs button.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .group-title {
   font-size: 13px; color: var(--muted-2); margin: 16px 0 6px;
   display: flex; align-items: center; gap: 8px;
@@ -168,6 +169,42 @@ details.ai[open] summary::before { content: "▾ "; }
   border: 1px solid var(--ok-line); background: var(--ok-bg);
   border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 2px;
 }
+/* ===== 提示与确认 =====
+   不用 alert()/confirm()：浏览器原生框在手机上常是系统深色样式，和页面完全割裂，
+   而且会打断操作。这里换成页面内的轻提示和自定义确认框，样式跟着主题变量走。 */
+.toast-wrap {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  z-index: 99; width: min(92vw, 460px);
+  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  pointer-events: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.toast {
+  background: var(--ink); color: var(--on-ink);
+  font-size: 14px; line-height: 1.65; white-space: pre-line;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  box-shadow: 0 6px 22px rgba(0,0,0,.22);
+  max-width: 100%;
+  animation: toastIn .18s ease-out;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.toast.out { opacity: 0; transform: translateY(10px); transition: opacity .2s, transform .2s; }
+
+.mask {
+  position: fixed; inset: 0; z-index: 100; padding: 24px;
+  background: rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.mask[hidden] { display: none; }
+.dialog {
+  background: var(--surface); border-radius: var(--radius);
+  width: min(92vw, 360px); padding: 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+}
+.dialog p { margin: 0 0 16px; font-size: 15px; line-height: 1.65; color: var(--ink); white-space: pre-line; }
+.dialog .row { margin-top: 0; }
+.dialog .row button { flex: 1 1 0; }
+
 @media (max-width: 480px) {
   body { padding: 12px 10px 32px; }
   h1 { font-size: 20px; }
@@ -235,6 +272,18 @@ details.ai[open] summary::before { content: "▾ "; }
 
 </div>
 
+<!-- 轻提示与确认框：替代 alert / confirm，样式跟主题走 -->
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+<div class="mask" id="mask" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgText">
+    <p id="dlgText"></p>
+    <div class="row">
+      <button id="dlgNo" type="button">取消</button>
+      <button id="dlgYes" class="primary" type="button">确定</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ③ 逻辑：技术操盘手独占改这一块 */
 (function () {
@@ -261,6 +310,11 @@ details.ai[open] summary::before { content: "▾ "; }
   var $aiRem  = document.getElementById("aiRemember");
   var $aiStat = document.getElementById("aiStatus");
   var $aiSum  = document.getElementById("aiSum");
+  var $toastW = document.getElementById("toastWrap");
+  var $mask   = document.getElementById("mask");
+  var $dlgTxt = document.getElementById("dlgText");
+  var $dlgYes = document.getElementById("dlgYes");
+  var $dlgNo  = document.getElementById("dlgNo");
 
   var STORE_INPUT = "deadline-radar:input";     // 输入框草稿
   var STORE_ITEMS = "deadline-radar:items";     // 累积清单（PRD 8. 数据契约）
@@ -749,6 +803,42 @@ details.ai[open] summary::before { content: "▾ "; }
     $ops.style.display = all.length ? "flex" : "none";
   }
 
+  /* ============ 提示与确认 ============
+     不用 alert()/confirm()：原生弹窗在手机上常是系统深色框，跟页面两张皮，
+     而且会冻结整个页面。改成页面内的轻提示 + 自定义确认框，样式跟着主题变量走。
+     toast(msg, ms)      —— 底部浮出，自动消失，不打断操作
+     ask(msg, onYes)     —— 需要用户点头的破坏性操作（目前只有「清空全部清单」） */
+  function toast(msg, ms) {
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    $toastW.appendChild(el);
+    while ($toastW.children.length > 3) $toastW.removeChild($toastW.firstChild);
+    setTimeout(function () {
+      el.classList.add("out");
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 220);
+    }, ms || 2800);
+  }
+
+  var askYes = null;
+  function ask(msg, onYes) {
+    $dlgTxt.textContent = msg;
+    askYes = onYes;
+    $mask.hidden = false;
+    $dlgNo.focus();                       // 焦点默认落在「取消」，防误触
+  }
+  function closeAsk() { $mask.hidden = true; askYes = null; }
+  $dlgYes.addEventListener("click", function () {
+    var fn = askYes;
+    closeAsk();
+    if (fn) fn();
+  });
+  $dlgNo.addEventListener("click", closeAsk);
+  $mask.addEventListener("click", function (e) { if (e.target === $mask) closeAsk(); });
+  document.addEventListener("keydown", function (e) {
+    if (!$mask.hidden && e.key === "Escape") closeAsk();
+  });
+
   /* ============ 截图输入 ============
      微信截图 → Ctrl+V / 拖进来 / 手机上选相册。
      压缩只为省上传时间：模型那边每张图最多算 1024 token（约 1300×1300），
@@ -809,18 +899,18 @@ details.ai[open] summary::before { content: "▾ "; }
     var list = Array.prototype.slice.call(files || []).filter(function (f) {
       return f && /^image\//.test(f.type || "");
     });
-    if (!list.length) { alert("只认图片文件（截图、照片都行）。"); return; }
+    if (!list.length) { toast("只认图片文件（截图、照片都行）。"); return; }
     var room = MAX_IMG - IMGS.length;
-    if (room <= 0) { alert("一次最多 " + MAX_IMG + " 张，先删掉几张再加。"); return; }
+    if (room <= 0) { toast("一次最多 " + MAX_IMG + " 张，先删掉几张再加。"); return; }
     if (list.length > room) list = list.slice(0, room);
     if (list.some(function (f) { return f.size > 12 * 1024 * 1024; })) {
-      alert("有图片超过 12MB，先裁掉一部分再试。");
+      toast("有图片超过 12MB，先裁掉一部分再试。");
       return;
     }
     Promise.all(list.map(compressImage)).then(function (urls) {
       urls.forEach(function (u) { IMGS.push({ id: "img" + (++imgSeq), dataUrl: u }); });
       renderThumbs();
-    }).catch(function (e) { alert("图片处理失败：" + e.message); });
+    }).catch(function (e) { toast("图片处理失败：" + e.message); });
   }
 
   /* ============ AI 增强层（DeepSeek） ============
@@ -1034,9 +1124,9 @@ details.ai[open] summary::before { content: "▾ "; }
     if (note) setAiStatus(note, isErr ? "err" : "on");
     if (!fresh.length) {
       if (IMGS.length) {
-        alert("这次没抽出条目。可以试试：\n① 截图只留通知那几条，把闲聊裁掉\n② 顺便把关键文字也粘一点进来\n③ 再点一次（模型偶尔会空手而归）");
+        toast("这次没抽出条目。可以试试：\n① 截图只留通知那几条，把闲聊裁掉\n② 顺便把关键文字也粘一点进来\n③ 再点一次（模型偶尔会空手而归）", 6000);
       } else {
-        alert("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 在上面「AI 概括」里填一个 DeepSeek Key，让模型帮你概括");
+        toast("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 在上面「AI 概括」里填一个 DeepSeek Key，让模型帮你概括", 6000);
       }
       return;
     }
@@ -1048,8 +1138,8 @@ details.ai[open] summary::before { content: "▾ "; }
     try { localStorage.removeItem(STORE_INPUT); } catch (e) {}
     tab = "todo";
     render();
-    if (!added) alert("这批 " + fresh.length + " 条都已经在清单里了，没有重复添加。");
-    else if (dup) alert("加入 " + added + " 条，" + dup + " 条已存在被跳过。");
+    if (!added) toast("这批 " + fresh.length + " 条都已经在清单里了，没有重复添加。");
+    else if (dup) toast("加入 " + added + " 条，" + dup + " 条已存在被跳过。");
   }
 
   function run() {
@@ -1058,7 +1148,7 @@ details.ai[open] summary::before { content: "▾ "; }
     var hasImg = IMGS.length > 0;
 
     if (!text.trim() && !hasImg) {
-      alert("先粘几条群通知，或者直接 Ctrl + V 粘一张聊天截图。也可以点「填入示例」看效果。");
+      toast("先粘几条群通知，或者直接 Ctrl + V 粘一张聊天截图。也可以点「填入示例」看效果。");
       $input.focus();
       return;
     }
@@ -1186,7 +1276,7 @@ details.ai[open] summary::before { content: "▾ "; }
   $ics.addEventListener("click", function () {
     var list = refreshMeta(current()).filter(function (x) { return !x.done && x.due; });
     if (!list.length) {
-      alert("没有「未完成且写了日期」的条目。先勾掉做完的，或者确认通知里写了截止时间。");
+      toast("没有「未完成且写了日期」的条目。先勾掉做完的，或者确认通知里写了截止时间。");
       return;
     }
 
@@ -1234,7 +1324,7 @@ details.ai[open] summary::before { content: "▾ "; }
   /* ============ 导出：复制成文本（只复制待办） ============ */
   $copy.addEventListener("click", function () {
     var list = refreshMeta(current()).filter(function (x) { return !x.done; });
-    if (!list.length) { alert("待办是空的，没有可复制的内容。"); return; }
+    if (!list.length) { toast("待办是空的，没有可复制的内容。"); return; }
 
     var btn = $copy;
     var text = "【截止日清单】\n" + list.map(function (x) {
@@ -1252,7 +1342,7 @@ details.ai[open] summary::before { content: "▾ "; }
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
-      try { document.execCommand("copy"); ok(); } catch (e) { alert("复制失败，请手动选中文字"); }
+      try { document.execCommand("copy"); ok(); } catch (e) { toast("复制失败，请手动选中文字"); }
       document.body.removeChild(ta);
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1264,9 +1354,11 @@ details.ai[open] summary::before { content: "▾ "; }
   $wipe.addEventListener("click", function () {
     var n = current().length;
     if (!n) return;
-    if (!confirm("确定清空全部 " + n + " 条清单？这个操作不能撤销。")) return;
-    save([]);
-    render();
+    ask("确定清空全部 " + n + " 条清单？\n这个操作不能撤销。", function () {
+      save([]);
+      render();
+      toast("已清空 " + n + " 条清单。");
+    });
   });
 
   /* ============ 测试 AI 连接 ============ */
