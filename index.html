@@ -93,6 +93,27 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
 }
 .ops { display: flex; gap: 8px; flex-wrap: wrap; }
 .ops .danger { color: #c0392b; border-color: #e6b3ae; }
+details.ai summary {
+  cursor: pointer; font-size: 14px; color: #555; list-style: none;
+}
+details.ai summary::-webkit-details-marker { display: none; }
+details.ai summary::before { content: "▸ "; }
+details.ai[open] summary::before { content: "▾ "; }
+.ai-row { margin-top: 10px; }
+.ai-row label { display: block; font-size: 13px; color: #666; }
+.ai-row select, .ai-row input[type=password], .ai-row input[type=text] {
+  width: 100%; margin-top: 4px; padding: 8px 10px; font: inherit; font-size: 14px;
+  border: 1px solid #ccc; border-radius: 6px; background: #fff;
+}
+.ai-ck { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #666; }
+.ai-state { font-size: 13px; margin: 10px 0 0; color: #666; }
+.ai-state.on { color: #1a7f37; }
+.ai-state.err { color: #c0392b; }
+.ai-badge {
+  font-size: 11px; font-weight: 400; color: #1a7f37;
+  border: 1px solid #b7e0c3; background: #f2fbf5;
+  border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 2px;
+}
 @media (max-width: 480px) {
   body { padding: 12px 10px 32px; }
   h1 { font-size: 20px; }
@@ -120,6 +141,30 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     </div>
     <p class="hint">Ctrl + Enter 也能分析。数据只存在你自己的浏览器里，不上传。</p>
   </section>
+
+  <!-- AI 增强层：可选。不填 Key 就是纯本地规则，断网也能用 -->
+  <details class="card ai" id="aibox">
+    <summary>接入 AI（可选 · 不填也能用）</summary>
+    <div class="ai-row">
+      <label>服务商
+        <select id="aiProvider">
+          <option value="deepseek">DeepSeek（deepseek-chat，需充值）</option>
+          <option value="siliconflow">硅基流动（有免费模型）</option>
+          <option value="zhipu">智谱 GLM（glm-4-flash 免费）</option>
+        </select>
+      </label>
+    </div>
+    <div class="ai-row">
+      <label>API Key
+        <input id="aiKey" type="password" autocomplete="off" placeholder="粘贴你的 Key，例如 sk-...">
+      </label>
+    </div>
+    <div class="row">
+      <button id="aiTest">测试连接</button>
+      <label class="ai-ck"><input type="checkbox" id="aiRemember"> 在这台电脑记住</label>
+    </div>
+    <p class="ai-state" id="aiStatus">当前：本地规则模式。断网可用，但只会「摘句」，不会「概括」。</p>
+  </details>
 
   <nav class="tabs" id="tabs">
     <button data-tab="todo" class="on">待办</button>
@@ -153,6 +198,12 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
   var $ics    = document.getElementById("ics");
   var $copy   = document.getElementById("copy");
   var $wipe   = document.getElementById("wipe");
+  var $aiBox  = document.getElementById("aibox");
+  var $aiProv = document.getElementById("aiProvider");
+  var $aiKey  = document.getElementById("aiKey");
+  var $aiTest = document.getElementById("aiTest");
+  var $aiRem  = document.getElementById("aiRemember");
+  var $aiStat = document.getElementById("aiStatus");
 
   var STORE_INPUT = "deadline-radar:input";     // 输入框草稿
   var STORE_ITEMS = "deadline-radar:items";     // 累积清单（PRD 8. 数据契约）
@@ -549,7 +600,9 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     node.appendChild(chk);
 
     var body = el("div", "body");
-    body.appendChild(el("div", "t", x.title));
+    var tdiv = el("div", "t", x.title);
+    if (x.src === "ai") tdiv.appendChild(el("span", "ai-badge", "AI"));
+    body.appendChild(tdiv);
 
     var meta = el("div", "meta");
     meta.appendChild(document.createTextNode(dueText(x)));
@@ -639,6 +692,134 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     $ops.style.display = all.length ? "flex" : "none";
   }
 
+  /* ============ AI 增强层（可选） ============
+     原则：AI 是增强，不是命脉。
+     - 没填 Key：纯规则，断网可用
+     - 填了 Key 但超时/失败/被跨域拦：自动回退规则，界面不报红，只在状态栏说明 */
+  var AI_PROVIDERS = {
+    deepseek:    { name: "DeepSeek",  url: "https://api.deepseek.com/chat/completions",             model: "deepseek-chat" },
+    siliconflow: { name: "硅基流动",  url: "https://api.siliconflow.cn/v1/chat/completions",        model: "Qwen/Qwen2.5-7B-Instruct" },
+    zhipu:       { name: "智谱 GLM",  url: "https://open.bigmodel.cn/api/paas/v4/chat/completions", model: "glm-4-flash" }
+  };
+  var AI_STORE = "deadline-radar:ai";
+
+  function provider() { return AI_PROVIDERS[$aiProv.value] || AI_PROVIDERS.deepseek; }
+  function setAiStatus(msg, cls) {
+    $aiStat.textContent = msg;
+    $aiStat.className = "ai-state" + (cls ? " " + cls : "");
+  }
+  function ymdCN(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+
+  function aiPrompt(text) {
+    return "今天是 " + ymdCN(new Date()) + "。\n" +
+      "下面是一段真实的微信群聊天记录，可能包含「昵称 + 发送时间」的消息头、表情、链接、附件和闲聊。\n" +
+      "请从中找出所有「要在某个时间点之前完成的事」，整理成待办。\n" +
+      "要求：\n" +
+      "1. title：一句话说清要做什么，20 字以内，用动词开头，要概括不要照抄原句，不要带昵称、@、表情。\n" +
+      "2. due：截止日期 YYYY-MM-DD。相对时间（今天/明天/下周三/月底）必须按该条消息的发送时间换算，不要按今天算。\n" +
+      "3. time：截止时刻 HH:MM，没写就 null；区间日期（如 11月2日8:00—11月7日24:00）取结束时间。\n" +
+      "4. materials：真正要提交或携带的东西，字符串数组，没有就 []。不要写「链接」「通知」「材料」。\n" +
+      "5. source：最能支撑这条待办的那句原文，原样截取，不要改写。\n" +
+      "6. 一句话里有多件事就拆成多条；纯闲聊、通知转发、单纯让人进群、已经明显过期的，不要收录。\n" +
+      "只输出 JSON，不要解释，不要代码块：\n" +
+      '{"items":[{"title":"","due":"YYYY-MM-DD","time":"HH:MM","materials":[],"source":""}]}\n\n' +
+      "聊天记录：\n" + text;
+  }
+
+  function callAI(text, key) {
+    var p = provider();
+    var ctrl = new AbortController();
+    var timer = setTimeout(function () { ctrl.abort(); }, 30000);
+    return fetch(p.url, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({
+        model: p.model,
+        temperature: 0,
+        messages: [
+          { role: "system", content: "你是中文信息抽取器，只输出 JSON，不输出任何解释。" },
+          { role: "user", content: aiPrompt(text) }
+        ]
+      })
+    }).then(function (res) {
+      clearTimeout(timer);
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          throw new Error("HTTP " + res.status + " " + String(t || "").replace(/\s+/g, " ").slice(0, 70));
+        });
+      }
+      return res.json();
+    }).then(function (data) {
+      var s = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!s) throw new Error("返回内容为空");
+      s = String(s).replace(/```json|```/g, "").trim();
+      var i = s.indexOf("{"), j = s.lastIndexOf("}");
+      if (i >= 0 && j > i) s = s.slice(i, j + 1);
+      var obj = JSON.parse(s);
+      var arr = Array.isArray(obj) ? obj : (obj.items || []);
+      return arr.map(function (x) {
+        var t = String(x.time || "");
+        return {
+          title: String(x.title || "").trim(),
+          due: /^\d{4}-\d{2}-\d{2}$/.test(x.due) ? x.due : null,
+          time: /^\d{1,2}:\d{2}$/.test(t) ? pad(+t.split(":")[0]) + ":" + t.split(":")[1] : null,
+          materials: Array.isArray(x.materials) ? x.materials.filter(Boolean).map(String) : [],
+          source: String(x.source || "").trim(),
+          src: "ai"
+        };
+      }).filter(function (x) { return x.title; });
+    }).catch(function (e) {
+      clearTimeout(timer);
+      if (e && e.name === "AbortError") throw new Error("超时 30 秒");
+      if (e instanceof TypeError) throw new Error("网络不通或被跨域拦截");
+      throw e;
+    });
+  }
+
+  /* AI 条目优先，规则条目补漏：同一条只留一个，AI 缺日期就用规则算出的补上 */
+  function normKey(t) { return String(t || "").replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, "").slice(0, 12); }
+  function mergeFresh(aiItems, ruleItems) {
+    var out = aiItems.slice();
+    ruleItems.forEach(function (r) {
+      var rk = normKey(r.title), hit = null, i, ok;
+      for (i = 0; i < out.length; i++) {
+        ok = normKey(out[i].title);
+        if (!ok || !rk) continue;
+        if (ok.indexOf(rk) >= 0 || rk.indexOf(ok) >= 0) { hit = out[i]; break; }
+      }
+      if (hit) {
+        if (!hit.due && r.due) { hit.due = r.due; hit.time = hit.time || r.time; }
+        if (!hit.source) hit.source = r.source;
+        if ((!hit.materials || !hit.materials.length) && r.materials.length) hit.materials = r.materials;
+        return;
+      }
+      out.push(r);
+    });
+    return out;
+  }
+
+  function loadAiCfg() {
+    try {
+      var c = JSON.parse(localStorage.getItem(AI_STORE) || "null");
+      if (c && c.key) {
+        $aiProv.value = c.provider || "deepseek";
+        $aiKey.value = c.key;
+        $aiRem.checked = true;
+        setAiStatus("已记住 Key，当前：AI 概括 + 规则兜底。", "on");
+      }
+    } catch (e) {}
+  }
+  function saveAiCfg() {
+    try {
+      if ($aiRem.checked && $aiKey.value.trim()) {
+        localStorage.setItem(AI_STORE, JSON.stringify({ provider: $aiProv.value, key: $aiKey.value.trim() }));
+      } else {
+        localStorage.removeItem(AI_STORE);
+      }
+    } catch (e) {}
+  }
+
   /* ============ 交互 ============ */
   $result.addEventListener("click", function (e) {
     var btn = e.target.closest ? e.target.closest("[data-act]") : null;
@@ -668,6 +849,25 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     render();
   });
 
+  function finish(fresh, note, isErr) {
+    busy = false;
+    $run.disabled = false;
+    $run.textContent = "分析并加入清单";
+    if (note) setAiStatus(note, isErr ? "err" : "on");
+    if (!fresh.length) {
+      alert("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 在上面「接入 AI」里填一个 Key，让模型帮你概括");
+      return;
+    }
+    var added = mergeItems(fresh);
+    var dup = fresh.length - added;
+    $input.value = "";
+    try { localStorage.removeItem(STORE_INPUT); } catch (e) {}
+    tab = "todo";
+    render();
+    if (!added) alert("这批 " + fresh.length + " 条都已经在清单里了，没有重复添加。");
+    else if (dup) alert("加入 " + added + " 条，" + dup + " 条已存在被跳过。");
+  }
+
   function run() {
     if (busy) return;
     var text = $input.value;
@@ -677,32 +877,24 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
       return;
     }
 
+    // 规则先跑：它永远能出结果，是兜底
+    var ruleItems = [];
+    try { ruleItems = extract(text); } catch (e) {}
+
+    var key = ($aiKey.value || "").trim();
+    if (!key) { finish(ruleItems, "本地规则模式：只摘句、不概括。填入 Key 可让 AI 概括成一句话待办。", false); return; }
+
     busy = true;
     $run.disabled = true;
-    $run.textContent = "分析中…";
-
-    setTimeout(function () {
-      busy = false;
-      $run.disabled = false;
-      $run.textContent = "分析并加入清单";
-      try {
-        var fresh = extract(text);
-        if (!fresh.length) {
-          alert("没找到像「什么时候要做什么」的句子。试着带上「本周五 18:00 前」「11 月 13 日前」这类时间词。");
-          return;
-        }
-        var added = mergeItems(fresh);
-        var dup = fresh.length - added;
-        $input.value = "";
-        try { localStorage.removeItem(STORE_INPUT); } catch (e) {}
-        tab = "todo";
-        render();
-        if (!added) alert("这批 " + fresh.length + " 条都已经在清单里了，没有重复添加。");
-        else if (dup) alert("加入 " + added + " 条，" + dup + " 条已存在被跳过。");
-      } catch (err) {
-        alert("解析出错：" + err.message);
-      }
-    }, 200);
+    $run.textContent = "AI 分析中…";
+    var p = provider();
+    callAI(text, key).then(function (items) {
+      saveAiCfg();
+      finish(mergeFresh(items, ruleItems),
+        "AI 概括完成：" + items.length + " 条（" + p.name + " · " + p.model + "）", false);
+    }).catch(function (err) {
+      finish(ruleItems, "AI 没调通（" + err.message + "），已自动改用本地规则，结果仍然可用。", true);
+    });
   }
 
   $run.addEventListener("click", run);
@@ -830,12 +1022,31 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     render();
   });
 
+  /* ============ 测试 AI 连接 ============ */
+  $aiTest.addEventListener("click", function () {
+    var key = ($aiKey.value || "").trim();
+    if (!key) { setAiStatus("先填 Key 再测试。", "err"); $aiKey.focus(); return; }
+    var p = provider();
+    $aiTest.disabled = true;
+    setAiStatus("测试中…（最多 30 秒）", "");
+    callAI("【测试】请于明天下午 3 点前交一份活动总结。", key).then(function (items) {
+      $aiTest.disabled = false;
+      saveAiCfg();
+      if (!items.length) { setAiStatus("通了，但模型没抽出条目。换个服务商试试。", "err"); return; }
+      setAiStatus("连接成功：" + p.name + " · " + p.model + "，识别到「" + items[0].title + "」。", "on");
+    }).catch(function (err) {
+      $aiTest.disabled = false;
+      setAiStatus("失败：" + err.message + "。可以换一个服务商再试。", "err");
+    });
+  });
+
   /* ============ 启动 ============ */
   try {
     var saved = localStorage.getItem(STORE_INPUT);
     if (saved) $input.value = saved;
   } catch (e) {}
 
+  loadAiCfg();
   render();
 })();
 </script>
