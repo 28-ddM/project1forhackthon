@@ -241,42 +241,70 @@ details.ai[open] summary::before { content: "▾ "; }
   border-color: var(--accent); font-weight: 600;
 }
 
-/* 屏1 · 身份选择卡片：选中 = 细暖黄边框 + 右下角对勾 */
-.role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.role-card {
-  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
-  text-align: left; padding: 16px; border-radius: var(--radius);
+/* 屏1 · 工作模式选择：本地 / AI 两张大卡，选中 = 暖黄细边框 + 右下角对勾 */
+.mode-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.mode-card {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  text-align: left; padding: 18px 16px 20px; min-height: 148px;
+  border-radius: var(--radius); background: var(--surface);
+  border: 1px solid var(--line-2);
+  transition: border-color 200ms ease, background-color 200ms ease;
+}
+.mode-card:hover { background: var(--surface-2); }
+.mode-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mode-card .mode-ico { color: var(--muted-3); display: block; }
+.mode-card .mode-ico svg { width: 26px; height: 26px; display: block; }
+.mode-card .mode-name { font-size: 16px; font-weight: 600; }
+.mode-card .mode-desc { font-size: 12px; font-weight: 350; color: var(--muted); line-height: 1.55; }
+.mode-card .mode-tag {
+  margin-top: auto; font-size: 11px; font-weight: 400; color: var(--muted-3);
+  background: var(--tag-bg); border-radius: 999px; padding: 2px 8px;
+}
+.mode-card.on { border-color: var(--accent); background: var(--accent-soft); }
+.mode-card.on .mode-ico { color: var(--accent-deep); }
+.mode-card.on .mode-check { opacity: 1; }
+.mode-check {
+  position: absolute; right: 10px; bottom: 10px; width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent-deep); opacity: 0; transition: opacity 200ms ease;
+}
+
+/* 第二步 · 选择接入：两张窄卡横排，选中同样是暖黄描边 */
+.card-title { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+.conn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0; }
+.conn-card {
+  display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 12px; min-height: 68px; border-radius: var(--radius-sm);
   background: var(--surface); border: 1px solid var(--line-2);
   transition: border-color 200ms ease, background-color 200ms ease;
 }
-.role-card:hover { background: var(--surface-2); }
-.role-card .role-ico { color: var(--muted-3); display: block; }
-.role-card .role-ico svg { width: 28px; height: 28px; display: block; }
-.role-card .role-name { font-size: 16px; font-weight: 600; }
-.role-card .role-desc { font-size: 12px; font-weight: 350; color: var(--muted); line-height: 1.5; }
-.role-card .role-check {
-  position: absolute; right: 10px; bottom: 10px;
-  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
-  color: var(--accent-deep); opacity: 0; transition: opacity 200ms ease;
-}
-.role-card.on { border-color: var(--accent); background: var(--accent-soft); }
-.role-card.on .role-ico { color: var(--accent-deep); }
-.role-card.on .role-check { opacity: 1; }
-.role-prompt { margin-top: 12px; }
-.role-prompt summary {
-  cursor: pointer; font-size: 13px; font-weight: 350; color: var(--muted); list-style: none;
-}
-.role-prompt summary::-webkit-details-marker { display: none; }
-.role-prompt summary::before { content: "▸ "; }
-.role-prompt[open] summary::before { content: "▾ "; }
-.role-prompt input {
-  width: 100%; margin-top: 8px; padding: 9px 12px; font: inherit; font-size: 14px;
-  color: var(--ink); border: 1px solid var(--line-2);
-  border-radius: var(--radius-sm); background: var(--surface);
-  transition: border-color 200ms ease;
-}
-.role-prompt input:focus { outline: none; border-color: var(--accent); }
+.conn-card:hover { background: var(--surface-2); }
+.conn-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.conn-card .conn-name { font-size: 14px; font-weight: 600; }
+.conn-card .conn-desc { font-size: 12px; font-weight: 350; color: var(--muted); line-height: 1.5; }
+.conn-card.on { border-color: var(--accent); background: var(--accent-soft); }
 
+/* 验证失败：不铺满红色，只留一道左描边 + 浅底；主按钮给「改用本地」 */
+.fallback {
+  margin-top: 12px; padding: 12px 14px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line-3);
+  border-left: 3px solid var(--danger);
+}
+.fallback[hidden] { display: none; }
+.fallback-title { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.fallback-msg { margin: 0 0 8px; font-size: 12px; font-weight: 350; color: var(--muted-3); line-height: 1.6; }
+.fallback-msg b { color: var(--ink-2); font-weight: 600; }
+.fallback .row { margin-top: 4px; }
+
+/* 本地模式常驻说明：让「按紧急程度分好五档」在待办页看得见 */
+.local-note {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 12px 0 0; padding: 10px 12px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line-3);
+  font-size: 12px; font-weight: 350; color: var(--muted-3); line-height: 1.6;
+}
+.local-note b { color: var(--ink-2); font-weight: 600; }
+.local-note[hidden] { display: none; }
 /* 屏3 · 周历栏：七格一行，有截止日的格子带点 */
 .cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .cal-head .week-title { flex: 1; text-align: center; font-size: 15px; font-weight: 600; }
@@ -350,7 +378,7 @@ details.ai[open] summary::before { content: "▾ "; }
   textarea { height: 160px; }
 }
 @media (max-width: 600px) {
-  .role-grid { grid-template-columns: 1fr; }   /* 三张身份卡手机上竖排，desc 才放得下 */
+  .mode-grid, .conn-grid { grid-template-columns: 1fr; }   /* 两张模式卡 / 接入卡手机上竖排 */
 }
 @media (max-width: 480px) {
   body { padding: 16px 12px 32px; }
@@ -358,6 +386,13 @@ details.ai[open] summary::before { content: "▾ "; }
   .slogan { font-size: 15px; }
   button { font-size: 14px; padding: 9px 12px; }
   .row button { flex: 1 1 auto; }
+  /* 窄屏：导航折成两行，避免右侧按钮被裁掉、整页出现横向滚动 */
+  .topnav { gap: 6px; padding: 8px 12px; }
+  .nav-logo { font-size: 15px; }
+  .nav-role { font-size: 11px; padding: 2px 6px; }
+  .nav-links { width: 100%; margin-left: 0; gap: 6px; }
+  .nav-links button { flex: 1 1 0; padding: 8px 6px; }
+  .mode-card { min-height: 0; padding: 14px 14px 18px; }
 }
 </style>
 </head>
@@ -367,53 +402,90 @@ details.ai[open] summary::before { content: "▾ "; }
   <!-- 顶部导航：只在「工作台 / 日历」两屏出现，选身份阶段隐藏 -->
   <nav class="topnav" id="topnav" hidden>
     <span class="nav-logo">截止日雷达</span>
-    <span class="nav-role" id="navRole">游客</span>
+    <span class="nav-role" id="navMode">本地模式</span>
     <span class="nav-links">
       <button id="navHome" type="button" class="on">首页</button>
       <button id="navCal" type="button">日历</button>
-      <button id="navGuest" type="button">游客</button>
+      <button id="navGuest" type="button">模式</button>
     </span>
   </nav>
 
-  <!-- 屏1 · 身份选择：只换示例文案和 AI 关注点，功能不随身份变化 -->
-  <section id="screen-role" class="screen">
+  <!-- 屏1 · 工作模式选择：本地 / AI 二选一；选了 AI 才展开接入方式与验证 -->
+  <section id="screen-mode" class="screen">
     <header>
       <h1>截止日雷达</h1>
       <p class="slogan">别让群里的通知，悄悄溜走。</p>
-      <p class="sub">先告诉它你是谁，示例和提醒会贴合你的场景。不选也行，游客身份功能完全一样。</p>
+      <p class="sub">先选一种工作方式。两种都能把群通知变成清单，区别只在于要不要联网。</p>
     </header>
+
     <section class="card">
-      <div class="role-grid" id="roleGrid">
-        <button type="button" class="role-card" data-role="student">
-          <span class="role-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 9l9-4 9 4-9 4-9-4z"/><path d="M7 11v4c0 1.6 2.2 3 5 3s5-1.4 5-3v-4"/></svg></span>
-          <span class="role-name">学生</span>
-          <span class="role-desc">作业、评教、社团活动、报销材料的截止日</span>
-          <span class="role-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
+      <div class="mode-grid" id="modeGrid">
+        <button type="button" class="mode-card on" data-mode="local">
+          <span class="mode-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h4"/></svg></span>
+          <span class="mode-name">本地模式</span>
+          <span class="mode-desc">不用 Key、不用联网。规则引擎直接拆出待办，并按紧急程度分成五档。</span>
+          <span class="mode-tag">断网可用</span>
+          <span class="mode-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
         </button>
-        <button type="button" class="role-card" data-role="teacher">
-          <span class="role-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><rect x="4" y="4" width="16" height="10" rx="1.5"/><path d="M9 20h6M12 14v6"/><path d="M8 8.5h5"/></svg></span>
-          <span class="role-name">教师</span>
-          <span class="role-desc">收齐材料、报送节点、会议与检查的时间</span>
-          <span class="role-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
-        </button>
-        <button type="button" class="role-card" data-role="worker">
-          <span class="role-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/><path d="M3 12h18"/></svg></span>
-          <span class="role-name">工作者</span>
-          <span class="role-desc">报表、审批、会议纪要、项目节点</span>
-          <span class="role-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
+        <button type="button" class="mode-card" data-mode="ai">
+          <span class="mode-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9L18 16z"/></svg></span>
+          <span class="mode-name">AI 模式</span>
+          <span class="mode-desc">把杂乱的群聊概括成一句话待办，还能读聊天截图。需要先接入并验证。</span>
+          <span class="mode-tag">需联网</span>
+          <span class="mode-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
         </button>
       </div>
-      <details class="role-prompt" id="rolePromptBox">
-        <summary>我关注的关键词（可选）</summary>
-        <input id="rolePrompt" type="text" placeholder="比如：评教、奖学金、四六级——包含这些词的通知优先提醒">
-      </details>
+      <div class="row" style="margin-top:12px">
+        <button id="modeGo" class="primary" type="button">用本地模式开始</button>
+      </div>
+      <p class="hint">清单和日历是同一份数据，随时能在右上角「模式」里换回来。本地模式不联网，也不会上传任何内容。</p>
+    </section>
+
+    <!-- 第二步 · 选择接入 + 验证：只有点了 AI 模式才展开 -->
+    <section class="card" id="connectBox" hidden>
+      <h2 class="card-title">第二步 · 选择接入方式</h2>
+      <p class="hint" style="margin-top:0">选一个接口、填 Key，先验证一次。验证通过才用 AI 模式进工作台；没通过就回本地模式，功能不受影响。</p>
+
+      <div class="conn-grid" id="connGrid">
+        <button type="button" class="conn-card on" data-conn="deepseek">
+          <span class="conn-name">DeepSeek 官方直连</span>
+          <span class="conn-desc">浏览器可直接连，不需要服务器。模型 deepseek-flash。</span>
+        </button>
+        <button type="button" class="conn-card" data-conn="custom">
+          <span class="conn-name">自定义接口地址</span>
+          <span class="conn-desc">兼容 OpenAI 格式的代理或自建服务，填完整地址。</span>
+        </button>
+      </div>
+
+      <div class="ai-row" id="customUrlRow" hidden>
+        <label>接口地址
+          <input id="customUrl" type="text" autocomplete="off" placeholder="https://例子.com/v1/chat/completions">
+        </label>
+      </div>
+
+      <div class="ai-row">
+        <label>API Key
+          <input id="modeKey" type="password" autocomplete="off" placeholder="粘贴 sk- 开头的 Key">
+        </label>
+      </div>
+
       <div class="row">
-        <button id="roleGo" class="primary" type="button">进入工作台</button>
+        <button id="verifyBtn" class="primary" type="button">验证接入</button>
+        <label class="ai-ck"><input type="checkbox" id="modeRemember" checked> 在这台设备记住</label>
       </div>
-      <p class="hint">身份和关键词只存在这台设备的浏览器里，用来调整示例文案和 AI 的关注点，不上传。</p>
+      <p class="ai-state" id="verifyStatus">还没验证。验证会真实调用一次接口，最多等 30 秒。</p>
+
+      <div class="fallback" id="fallbackBox" hidden>
+        <p class="fallback-title">接入没通过验证</p>
+        <p class="fallback-msg" id="fallbackMsg">原因会显示在这里。</p>
+        <p class="fallback-msg">建议改用<b>本地模式</b>：不联网也能把通知拆成待办，并在「待办」里按紧急程度自动分类——已过期、3 天内、一周内、更远、未注明日期。</p>
+        <div class="row">
+          <button id="fallbackLocal" class="primary" type="button">改用本地模式</button>
+          <button id="fallbackRetry" type="button">重新验证</button>
+        </div>
+      </div>
     </section>
   </section>
-
   <!-- 屏2 · 粘贴识别工作台 -->
   <section id="screen-app" class="screen" hidden>
 
@@ -458,6 +530,10 @@ details.ai[open] summary::before { content: "▾ "; }
     </div>
     <p class="ai-state" id="aiStatus">当前：本地规则模式。断网可用，但只会「摘句」，不会「概括」。</p>
   </details>
+
+  <div class="local-note" id="localNote" hidden>
+    <span>本地规则已把待办按紧急程度分好五类：<b>已过期 · 3 天内 · 一周内 · 更远 · 未注明日期</b>。每条都能点开「看原句」核对。</span>
+  </div>
 
   <nav class="tabs" id="tabs">
     <button data-tab="todo" class="on">待办</button>
@@ -540,18 +616,30 @@ details.ai[open] summary::before { content: "▾ "; }
   var $dlgYes = document.getElementById("dlgYes");
   var $dlgNo  = document.getElementById("dlgNo");
 
-  /* 三屏与身份 */
+  /* 三屏与工作模式 */
   var $topnav  = document.getElementById("topnav");
-  var $navRole = document.getElementById("navRole");
+  var $navMode = document.getElementById("navMode");
   var $navHome = document.getElementById("navHome");
   var $navCal  = document.getElementById("navCal");
   var $navGuest= document.getElementById("navGuest");
-  var $scRole  = document.getElementById("screen-role");
+  var $scMode  = document.getElementById("screen-mode");
   var $scApp   = document.getElementById("screen-app");
   var $scCal   = document.getElementById("screen-cal");
-  var $roleGrid= document.getElementById("roleGrid");
-  var $roleGo  = document.getElementById("roleGo");
-  var $rolePmt = document.getElementById("rolePrompt");
+  var $modeGrid= document.getElementById("modeGrid");
+  var $modeGo  = document.getElementById("modeGo");
+  var $connBox = document.getElementById("connectBox");
+  var $connGrid= document.getElementById("connGrid");
+  var $customRow  = document.getElementById("customUrlRow");
+  var $customUrl  = document.getElementById("customUrl");
+  var $modeKey    = document.getElementById("modeKey");
+  var $modeRem    = document.getElementById("modeRemember");
+  var $verifyBtn  = document.getElementById("verifyBtn");
+  var $verifyStat = document.getElementById("verifyStatus");
+  var $fallbackBox   = document.getElementById("fallbackBox");
+  var $fallbackMsg   = document.getElementById("fallbackMsg");
+  var $fallbackLocal = document.getElementById("fallbackLocal");
+  var $fallbackRetry = document.getElementById("fallbackRetry");
+  var $localNote  = document.getElementById("localNote");
   /* 日历屏 */
   var $weekBar   = document.getElementById("weekBar");
   var $weekTitle = document.getElementById("weekTitle");
@@ -562,8 +650,8 @@ details.ai[open] summary::before { content: "▾ "; }
 
   var STORE_INPUT = "deadline-radar:input";     // 输入框草稿
   var STORE_ITEMS = "deadline-radar:items";     // 累积清单（PRD 8. 数据契约）
-  var STORE_ROLE  = "deadline-radar:role";      // 身份（student / teacher / worker / 空=游客）
-  var STORE_PROMPT= "deadline-radar:keywords";  // 身份页里填的「我关注的关键词」
+  var STORE_MODE  = "deadline-radar:mode";        // 工作模式（local / ai）
+  var STORE_ENDPOINT = "deadline-radar:endpoint"; // 自定义接入地址（只有 custom 才写）
   var MS_DAY = 86400000;
 
   /* 空状态插图内联成 data URL：单文件分发、file:// 打开、断网时都显示得出来，
@@ -1067,86 +1155,186 @@ details.ai[open] summary::before { content: "▾ "; }
     renderCal();
   }
 
-  /* ============ 三屏切换与身份 ============
-     身份只影响三处：导航标签、示例文案、AI 提示词里的关注点。
-     功能本身不随身份变化——评委问「教师模式和学生模式差在哪」，
-     答案是：不是功能不同，是引导和示例贴合场景，引擎同一套。 */
-  var ROLE_NAMES = { student: "学生", teacher: "教师", worker: "工作者" };
-  var role = "";
-  try { role = localStorage.getItem(STORE_ROLE) || ""; } catch (e) {}
-  if (!ROLE_NAMES[role]) role = "";
+  /* ============ 三屏切换与工作模式 ============
+     首屏只问一件事：本地，还是 AI。
+     本地 = 纯规则引擎，不联网；AI = 必须先验证接入，验证不过就退回本地。
+     两种模式的清单、日历、导出完全共用，切模式不会丢数据。 */
+  var MODE_NAMES = { local: "本地模式", ai: "AI 模式" };
+  var mode = "local";
+  var verified = false;                 // AI 是否已通过验证
+  var conn = "deepseek";                // deepseek | custom
+  try {
+    if (localStorage.getItem(STORE_MODE) === "ai") { mode = "ai"; verified = true; }
+    if (localStorage.getItem(STORE_ENDPOINT)) conn = "custom";
+  } catch (e) {}
 
-  var SAMPLES = {
-    student: [
-      "【学工办】请各班班长于下周五 18:00 前将《创新学分汇总表》电子版发送至学工办邮箱，逾期不予受理。",
-      "【教务】请于 2026 年 11 月 13 日前完成本学期评教，未完成的同学将影响成绩查询。",
-      "各位同学注意：下周三上午 9 点在三号楼 302 开会，记得带上学生证和一份个人简历。",
-      "关于奖学金申请的通知：符合条件的同学请在 11 月 20 日之前提交申请表和成绩单扫描件到辅导员处。",
-      "明天中午 12 点前把宿舍卫生检查表交到生活委员那里。",
-      "本学期读书笔记请于月底前提交至学习通。"
-    ],
-    teacher: [
-      "【教务处】请各教研室于下周五 17:00 前将期中教学检查表交至教务处 203 室。",
-      "【学工】请各班班主任于 11 月 13 日前收齐本班家庭经济困难认定表并报送学工办。",
-      "提醒：下周四下午 2 点在教学楼 4 楼会议室召开教学研讨会，请提前准备发言材料。",
-      "【人事】本年度考核表请于 11 月 20 日前完成填报并交系主任签字。",
-      "明天上午 10 点前把实验室安全检查记录拍照上传系统。",
-      "监考安排表已发群里，请各位老师于本周日之前确认签字回传。"
-    ],
-    worker: [
-      "【行政】请各部门于下周五 17:30 前将本月工作总结发送至行政部邮箱。",
-      "【财务】季度报销截止 11 月 13 日，过期票据转入下一季度处理。",
-      "提醒：下周二上午 10 点在 8 楼会议室开项目评审会，请提前到齐。",
-      "【人力】本年度培训学时核对请于 11 月 20 日前完成，逾期影响年度考核。",
-      "明天下班前把客户反馈汇总表同步到共享盘。",
-      "合同用印申请请提前一个工作日在 OA 提交，本周五前要用的请今天提。"
-    ]
-  };
+  var SAMPLE_TEXT = [
+    "【学工办】请各班班长于下周五 18:00 前将《创新学分汇总表》电子版发送至学工办邮箱，逾期不予受理。",
+    "【教务】请于 2026 年 11 月 13 日前完成本学期评教，未完成的同学将影响成绩查询。",
+    "各位同学注意：下周三上午 9 点在三号楼 302 开会，记得带上学生证和一份个人简历。",
+    "关于奖学金申请的通知：符合条件的同学请在 11 月 20 日之前提交申请表和成绩单扫描件到辅导员处。",
+    "明天中午 12 点前把宿舍卫生检查表交到生活委员那里。",
+    "本学期读书笔记请于月底前提交至学习通。"
+  ];
 
-  function roleSample() {
-    return (SAMPLES[role] || SAMPLES.student).join("\n");
+  /* 当前要用的接口地址：DeepSeek 官方，或用户自己填的兼容地址 */
+  function endpoint() {
+    if (conn === "custom") {
+      var u = $customUrl ? ($customUrl.value || "").trim() : "";
+      return u || AI.url;
+    }
+    return AI.url;
   }
 
   function showScreen(name) {
-    $scRole.hidden = name !== "role";
+    $scMode.hidden = name !== "mode";
     $scApp.hidden  = name !== "app";
     $scCal.hidden  = name !== "cal";
-    $topnav.hidden = name === "role";
+    $topnav.hidden = name === "mode";
     $navHome.classList.toggle("on", name === "app");
     $navCal.classList.toggle("on", name === "cal");
     if (name === "cal") renderCal();
     window.scrollTo(0, 0);
   }
 
-  function syncRoleUI() {
-    $navRole.textContent = role ? ROLE_NAMES[role] : "游客";
-    var cards = $roleGrid.querySelectorAll(".role-card");
+  function syncModeUI() {
+    $navMode.textContent = mode === "ai" ? (verified ? "AI 已接入" : "AI 未验证") : "本地模式";
+    var cards = $modeGrid.querySelectorAll(".mode-card");
     for (var i = 0; i < cards.length; i++) {
-      cards[i].classList.toggle("on", cards[i].getAttribute("data-role") === role);
+      cards[i].classList.toggle("on", cards[i].getAttribute("data-mode") === mode);
     }
+    var conns = $connGrid.querySelectorAll(".conn-card");
+    for (var j = 0; j < conns.length; j++) {
+      conns[j].classList.toggle("on", conns[j].getAttribute("data-conn") === conn);
+    }
+    $customRow.hidden = conn !== "custom";
+    $localNote.hidden = mode !== "local";
+    $modeGo.textContent = mode === "ai" ? "去验证接入" : "用本地模式开始";
+    syncAiSum();
   }
 
-  $roleGrid.addEventListener("click", function (e) {
-    var card = e.target.closest ? e.target.closest(".role-card") : null;
+  /* 进本地模式：把 Key 清掉，从根上保证这一步之后的解析不会偷偷联网 */
+  function enterLocal() {
+    mode = "local";
+    verified = false;
+    try { localStorage.setItem(STORE_MODE, "local"); } catch (e) {}
+    $aiKey.value = "";
+    $aiBox.open = false;
+    $fallbackBox.hidden = true;
+    $connBox.hidden = true;
+    syncModeUI();
+    showScreen("app");
+    toast("已用本地模式进入：待办会按紧急程度分成五档，每条都能点开「看原句」核对。", 5200);
+  }
+
+  function chooseAi() {
+    mode = "ai";
+    verified = false;
+    $connBox.hidden = false;
+    syncModeUI();
+    if (($modeKey.value || "").trim()) $verifyBtn.focus();
+    else $modeKey.focus();
+  }
+
+  $modeGrid.addEventListener("click", function (e) {
+    var card = e.target.closest ? e.target.closest(".mode-card") : null;
     if (!card) return;
-    role = (card.getAttribute("data-role") === role) ? "" : card.getAttribute("data-role");
-    syncRoleUI();
+    if (card.getAttribute("data-mode") === "ai") {
+      chooseAi();
+    } else {
+      mode = "local";
+      $connBox.hidden = true;
+      syncModeUI();
+    }
   });
 
-  $roleGo.addEventListener("click", function () {
-    try {
-      if (role) localStorage.setItem(STORE_ROLE, role); else localStorage.removeItem(STORE_ROLE);
-      if (($rolePmt.value || "").trim()) localStorage.setItem(STORE_PROMPT, $rolePmt.value.trim());
-      else localStorage.removeItem(STORE_PROMPT);
-    } catch (e) {}
-    syncRoleUI();
-    showScreen("app");
+  $modeGo.addEventListener("click", function () {
+    if (mode === "ai") {
+      $connBox.hidden = false;
+      if ($connBox.scrollIntoView) $connBox.scrollIntoView({ behavior: "smooth", block: "start" });
+      $modeKey.focus();
+    } else {
+      enterLocal();
+    }
   });
+
+  $connGrid.addEventListener("click", function (e) {
+    var c = e.target.closest ? e.target.closest(".conn-card") : null;
+    if (!c) return;
+    conn = c.getAttribute("data-conn");
+    if (conn === "deepseek") { $customUrl.value = ""; }
+    syncModeUI();
+    if (conn === "custom") $customUrl.focus();
+  });
+
+  /* 验证失败 = 用不了 AI，但不等于用不了这个工具：就地给一条回本地的路 */
+  function showFallback(reason) {
+    verified = false;
+    $fallbackMsg.textContent = "原因：" + reason;
+    $fallbackBox.hidden = false;
+    $verifyStat.textContent = "验证没通过。先用本地模式，一样能把通知变成清单。";
+    $verifyStat.className = "ai-state err";
+    syncModeUI();
+    if ($fallbackBox.scrollIntoView) $fallbackBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function verifyConnection() {
+    var key = ($modeKey.value || "").trim();
+    if (!key) {
+      $verifyStat.textContent = "先填 Key 再验证。没有 Key 就先用本地模式，功能一样能用。";
+      $verifyStat.className = "ai-state err";
+      $modeKey.focus();
+      return;
+    }
+    if (conn === "custom" && !($customUrl.value || "").trim()) {
+      $verifyStat.textContent = "自定义接入要填完整地址，例如 https://…/v1/chat/completions。";
+      $verifyStat.className = "ai-state err";
+      $customUrl.focus();
+      return;
+    }
+    var url = endpoint();
+    $verifyBtn.disabled = true;
+    $fallbackBox.hidden = true;
+    $verifyStat.textContent = "验证中…（最多 30 秒）";
+    $verifyStat.className = "ai-state";
+
+    callAI("【验证】请于明天下午 3 点前交一份活动总结。", key, [], url).then(function (items) {
+      $verifyBtn.disabled = false;
+      if (!items.length) {
+        showFallback("接口通了，但模型这次没抽出条目。可以再验证一次，或者先回本地模式。");
+        return;
+      }
+      AI.url = url;
+      AI.name = conn === "custom" ? "自定义接口" : "DeepSeek";
+      mode = "ai";
+      verified = true;
+      $aiKey.value = key;
+      $aiRem.checked = !!$modeRem.checked;
+      try {
+        localStorage.setItem(STORE_MODE, "ai");
+        if (conn === "custom") localStorage.setItem(STORE_ENDPOINT, url);
+        else localStorage.removeItem(STORE_ENDPOINT);
+      } catch (e) {}
+      saveAiCfg();
+      $fallbackBox.hidden = true;
+      $verifyStat.textContent = "验证通过：" + AI.name + " · " + AI.model + "，识别到「" + items[0].title + "」。";
+      $verifyStat.className = "ai-state on";
+      syncModeUI();
+      showScreen("app");
+      toast("AI 模式已启用：截图、概括都能用了；断网时会自动退回本地规则。", 5200);
+    }).catch(function (err) {
+      $verifyBtn.disabled = false;
+      showFallback(err && err.message ? err.message : "连不上这个接口");
+    });
+  }
+
+  $verifyBtn.addEventListener("click", verifyConnection);
+  $fallbackRetry.addEventListener("click", verifyConnection);
+  $fallbackLocal.addEventListener("click", enterLocal);
 
   $navHome.addEventListener("click", function () { showScreen("app"); });
   $navCal.addEventListener("click", function () { showScreen("cal"); });
-  $navGuest.addEventListener("click", function () { showScreen("role"); });
-
+  $navGuest.addEventListener("click", function () { showScreen("mode"); });
   /* ============ 日历屏：周历条 + 当周日程 ============
      读的是同一份清单，不另存数据。选天 = 过滤，选周 = 移动 calWeek。 */
   var calWeek = (function () {           // 本周一 00:00
@@ -1407,10 +1595,11 @@ details.ai[open] summary::before { content: "▾ "; }
     $aiStat.className = "ai-state" + (cls ? " " + cls : "");
   }
   /* 折叠状态下一眼看出 AI 通没通，答辩前不用点开面板检查 */
+  /* 折叠区标题上的一行状态：模式没开就不谎称「已就绪」 */
   function syncAiSum() {
-    var ok = !!($aiKey.value || "").trim();
-    $aiSum.textContent = ok ? "· 已就绪" : "· 未接入，纯本地规则";
-    $aiSum.className = "ai-sum" + (ok ? " on" : "");
+    var on = mode === "ai" && verified && !!($aiKey.value || "").trim();
+    $aiSum.textContent = on ? "· 已接入" : "· 本地规则";
+    $aiSum.className = "ai-sum" + (on ? " on" : "");
   }
   function ymdCN(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
 
@@ -1427,10 +1616,6 @@ details.ai[open] summary::before { content: "▾ "; }
 
   function aiPrompt(text, nImg) {
     var head = "今天是 " + ymdCN(new Date()) + "。\n";
-    if (role) head += "使用者身份：" + ROLE_NAMES[role] + "，按这个身份判断哪些通知算待办。\n";
-    var kw = "";
-    try { kw = (localStorage.getItem(STORE_PROMPT) || "").trim(); } catch (e) {}
-    if (kw) head += "使用者特别关注这些关键词：" + kw + "。\n";
     if (nImg) {
       head += "下面是微信群聊的截图，共 " + nImg + " 张。读图时守这几条：\n" +
         "· 每条消息旁的昵称和发送时间是「相对时间」的换算基准，不要拿今天去算。\n" +
@@ -1454,7 +1639,7 @@ details.ai[open] summary::before { content: "▾ "; }
       (String(text || "").trim() ? "聊天记录（文字）：\n" + text : "（这次没有文字，只按上面的截图处理）");
   }
 
-  function callAI(text, key, images) {
+  function callAI(text, key, images, apiUrl) {
     var imgs = images || [];
     var wait = imgs.length ? 60000 : 30000;   // 图片要多给时间：上传 + 读图
     var ctrl = new AbortController();
@@ -1471,7 +1656,7 @@ details.ai[open] summary::before { content: "▾ "; }
       content = aiPrompt(text, 0);
     }
 
-    return fetch(AI.url, {
+    return fetch(apiUrl || AI.url, {
       method: "POST",
       signal: ctrl.signal,
       headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
@@ -1551,7 +1736,7 @@ details.ai[open] summary::before { content: "▾ "; }
       if (c && c.key) {
         $aiKey.value = c.key;
         $aiRem.checked = true;
-        setAiStatus("已记住 Key，当前：AI 概括 + 规则兜底（" + AI.model + "）。", "on");
+        setAiStatus("已记住上次验证通过的 Key，AI 概括 + 规则兜底（" + AI.model + "）。", "on");
       }
     } catch (e) {}
     syncAiSum();
@@ -1586,7 +1771,7 @@ details.ai[open] summary::before { content: "▾ "; }
       if (IMGS.length) {
         toast("这次没抽出条目。可以试试：\n① 截图只留通知那几条，把闲聊裁掉\n② 顺便把关键文字也粘一点进来\n③ 再点一次（模型偶尔会空手而归）", 6000);
       } else {
-        toast("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 在上面「AI 概括」里填一个 DeepSeek Key，让模型帮你概括", 6000);
+        toast("没找到「什么时候要做什么」的句子。\n\n两个办法：\n① 原文里带上时间词（本周五 18:00 前、11 月 13 日前）\n② 点右上角「模式」切到 AI 模式，让模型帮你概括", 6000);
       }
       return;
     }
@@ -1617,13 +1802,11 @@ details.ai[open] summary::before { content: "▾ "; }
     var ruleItems = [];
     try { if (text.trim()) ruleItems = extract(text); } catch (e) {}
 
-    var key = ($aiKey.value || "").trim();
+    var key = (mode === "ai" && verified) ? ($aiKey.value || "").trim() : "";
 
-    // 截图必须走 AI。本地规则读不了图，必须明说，不能默默失败
+    // 截图必须走 AI。本地规则读不了图，指着右上角「模式」说清楚，不要默默失败
     if (hasImg && !key) {
-      $aiBox.open = true;
-      setAiStatus("截图要靠 AI 读，先在下面填一个 DeepSeek Key。", "err");
-      $aiKey.focus();
+      toast("截图要靠 AI 读。点右上角「模式」，切到 AI 模式并验证接入后再试；不切的话，把通知文字粘进来也能用。", 6500);
       return;
     }
 
@@ -1726,7 +1909,7 @@ details.ai[open] summary::before { content: "▾ "; }
   });
 
   $sample.addEventListener("click", function () {
-    $input.value = roleSample();
+    $input.value = SAMPLE_TEXT.join("\n");
     $input.focus();
   });
 
@@ -1847,7 +2030,11 @@ details.ai[open] summary::before { content: "▾ "; }
       $aiTest.disabled = false;
       saveAiCfg();
       if (!items.length) { setAiStatus("通了，但模型没抽出条目。再点一次试试。", "err"); return; }
-      setAiStatus("连接成功：" + AI.name + " · " + AI.model + "，识别到「" + items[0].title + "」。", "on");
+      mode = "ai";
+      verified = true;
+      try { localStorage.setItem(STORE_MODE, "ai"); } catch (e) {}
+      syncModeUI();
+      setAiStatus("连接成功：" + AI.name + " · " + AI.model + "，AI 模式已启用。", "on");
     }).catch(function (err) {
       $aiTest.disabled = false;
       setAiStatus("失败：" + err.message, "err");
@@ -1858,15 +2045,14 @@ details.ai[open] summary::before { content: "▾ "; }
   try {
     var saved = localStorage.getItem(STORE_INPUT);
     if (saved) $input.value = saved;
-    var savedKw = localStorage.getItem(STORE_PROMPT);
-    if (savedKw) $rolePmt.value = savedKw;
   } catch (e) {}
 
-  syncRoleUI();
   loadAiCfg();
+  syncModeUI();
   render();
-  /* 首屏：选过身份就直接进工作台，没选过先走身份选择 */
-  showScreen(role ? "app" : "role");
+  /* 首屏永远是「本地 / AI」二选一：这一步本身就是演示的一部分 */
+  showScreen("mode");
+
 })();
 </script>
 </body>

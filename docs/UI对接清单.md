@@ -20,7 +20,7 @@
 
 **关于 Tailwind CSS**：规范里提到 Tailwind，但项目**没有引入**。原因不是偷懒——Tailwind 走 CDN，断网时样式全部丢失，而这个产品的核心卖点恰恰是「断网也能用」。规范要求的全部效果用原生 CSS 变量就能实现，且保持零依赖、双击就跑。视觉照搬，技术栈不动。
 
-**关于三屏结构**：身份选择页 / 工作台 / 日程周历**已经做成一个 `index.html` 里的三个 `<section>`**（`#screen-role` / `#screen-app` / `#screen-cal`），用 `hidden` 属性切换，顶部 `#topnav` 导航在身份屏隐藏。所有元素仍在同一份文档里，脚本 `getElementById` 全部有效。**不要把任何一屏拆成第二个 HTML 文件**——脚本开头是一批 `getElementById`，元素不在那一页就是 `null`，整页按钮失效。
+**关于三屏结构**：模式选择页 / 工作台 / 日程周历**已经做成一个 `index.html` 里的三个 `<section>`**（`#screen-mode` / `#screen-app` / `#screen-cal`），用 `hidden` 属性切换，顶部 `#topnav` 导航在模式屏隐藏。所有元素仍在同一份文档里，脚本 `getElementById` 全部有效。**不要把任何一屏拆成第二个 HTML 文件**——脚本开头是一批 `getElementById`，元素不在那一页就是 `null`，整页按钮失效。
 
 ---
 
@@ -32,14 +32,17 @@
 
 ### 2. 不要删、不要改名任何 `id`
 
-JS 全靠这些 id 找元素，删一个就是一片功能失效。当前一共 **45 个**：
+JS 全靠这些 id 找元素，删一个就是一片功能失效。当前一共 **56 个**：
 
 ```
-三屏骨架   screen-role  screen-app  screen-cal  topnav
-顶部导航   navRole  navHome  navCal  navGuest
-身份屏     roleGrid  roleGo  rolePrompt  rolePromptBox
+三屏骨架   screen-mode  screen-app  screen-cal  topnav
+顶部导航   navMode  navHome  navCal  navGuest
+模式屏     modeGrid  modeGo  connectBox  connGrid
+           customUrlRow  customUrl  modeKey  modeRemember
+           verifyBtn  verifyStatus  fallbackBox  fallbackMsg
+           fallbackLocal  fallbackRetry
 输入区     input  run  clip  clear  sample  pick  file  thumbs  inputCard
-清单区     stats  result  tabs  ops  ics  copy  wipe
+清单区     stats  result  tabs  ops  ics  copy  wipe  localNote
 AI 面板    aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
 日历屏     weekBar  weekTitle  weekPrev  weekNext  calFilter  calList
 提示确认   toastWrap  mask  dlgText  dlgYes  dlgNo
@@ -66,11 +69,11 @@ AI 面板    aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
 .dots i        周历格下的截止日圆点
 ```
 
-`.role-card` 在 HTML 里，但它的 `.on` 选中态由脚本切换，别改 `.on` 的名字。`.item` 还会叠 `g-urgent` / `g-soon` / `g-far` / `g-over` / `g-nodate` 表示紧急程度。**左边框颜色专门留给紧急程度**，hover 只能动另外三条边。
+`.mode-card` / `.conn-card` 在 HTML 里，但它们的 `.on` 选中态由脚本切换，别改 `.on` 的名字；`.mode-check` 是卡片右下角那个对勾，只靠 `.on` 里的 `opacity` 显示。`.local-note` 只在本地模式下显示，靠 `hidden` 属性控制，别改成 `display:none` 内联样式。`.item` 还会叠 `g-urgent` / `g-soon` / `g-far` / `g-over` / `g-nodate` 表示紧急程度。**左边框颜色专门留给紧急程度**，hover 只能动另外三条边。
 
 ### 4. 不要拆掉 `<details>` / `<summary>` 的折叠结构
 
-「AI 概括」靠 `<details>` 展开收起，脚本里还会主动展开它（`$aiBox.open = true`）。换成 div + 手写 toggle 会和逻辑打架。
+「AI 概括」靠 `<details>` 展开收起。现在截图识别不再自动展开它：没接入 AI 时点截图会提示去模式页，切回本地模式时脚本会 `$aiBox.open = false` 收起它。别把它改成常驻展开的 div。
 
 ### 5. 不要再写 `alert()` / `confirm()`
 
@@ -166,7 +169,7 @@ AI 面板    aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
 
 1. **危险按钮仍不够区分**：「清空全部清单」和「复制成清单」长得接近，误点代价大。可以只给它换成 `--danger` 描边 + 浅红底，不动结构。
 2. **规则模式的标题还是摘原句**：不填 Key 时标题会带省略号（如「各班班长于本周五 18:00 前将《创新学分汇总表》…」）。这是规则引擎的固有表现，README 里已如实说明；演示时记得填 Key。
-3. **身份卡片没做记忆选中提示**：进过一次工作台后，身份存在本地，下次直接进工作台。想换身份点导航上的「游客」回去重选——这个流程第一次用不一定能发现，可以在导航「游客」上加个换身份的图标或文字（比如「切换身份」）。
+3. **模式入口不够显眼**：导航右侧的「模式」按钮是回选择页的唯一入口，现在和「首页 / 日历」长得一样。可以给它加一个状态小圆点（本地=灰、AI=已接入绿），让评委一眼看出现在跑在哪套引擎上。
 
 之前的三个短板（顶部信息薄、空状态太素、三屏结构）已解决。
 
@@ -176,9 +179,10 @@ AI 面板    aibox  aiSum  aiKey  aiTest  aiRemember  aiStatus
 
 **用手机测，不是电脑。** 电脑上好看不代表手机上好看。
 
-- [ ] 1. 首次打开是身份选择屏；点「学生」卡片出现暖黄描边和对勾；点「进入工作台」进工作台，导航显示「学生」
+- [ ] 1. 首次打开是模式选择屏；本地卡默认选中（暖黄描边 + 对勾）；点「用本地模式开始」进工作台，导航显示「本地模式」
+- [ ] 1b. 点「AI 模式」→ 接入区展开；不填 Key 点「验证接入」只提示先填 Key，不会进工作台；点「改用本地模式」能进工作台并显示分类说明
 - [ ] 2. 工作台里标题、slogan、输入框、五个按钮显示正常，**没有横向滚动条**；清单为空时虚线框里有奶龙插图，**周围没有白色方块**
-- [ ] 3. 点「填入示例」→「分析并加入清单」，能出 4~6 条待办；教师身份下示例内容会换成教师版
+- [ ] 3. 点「填入示例」→「分析并加入清单」，能出 4~6 条待办，并按「3 天内 / 一周内 / 更远」自动分组
 - [ ] 4. 每条待办左侧竖条颜色不同（红 / 黄 / 绿 / 灰），hover 时左边框颜色**不变**
 - [ ] 5. 点待办的勾选框，能打勾、文字变灰划线；点右侧 `×` 能删掉
 - [ ] 6. 点「图片选取」能调起相册，选图后出现缩略图、能点 `×` 删；一次选超过 6 张会明确提示跳过了几张
@@ -217,6 +221,6 @@ git checkout v0.9-保底-手机已验证 -- index.html
 
 ## 八、一句话总结
 
-> **你只管 `<style>` 里的事。`<script>` 一个字都别碰，45 个 id 一个都别删，动态 class 一个都别改名，16px 圆角和 `--shadow-sm` 别破坏。**
+> **你只管 `<style>` 里的事。`<script>` 一个字都别碰，56 个 id 一个都别删，动态 class 一个都别改名，16px 圆角和 `--shadow-sm` 别破坏。**
 
 守住这句，怎么改都不会把功能改坏。
