@@ -287,7 +287,8 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
   }
 
   /* ============ 材料识别 ============ */
-  var MAT_RE = /(汇总表|报名表|申请表|登记表|表格|附件|截图|照片|扫描件|PDF|Word|PPT|Excel|文档|材料|证明|成绩单|简历|视频|链接|清单)/g;
+  // 注意：不收录「链接」「网址」——它们几乎都出现在「通知链接」这类噪声里
+  var MAT_RE = /(汇总表|报名表|申请表|登记表|表格|附件|截图|照片|扫描件|PDF|Word|PPT|Excel|文档|材料|证明|成绩单|简历|视频|清单|作品|策划案|报名费)/g;
   function extractMaterials(text) {
     var out = [], m, seen = {};
     MAT_RE.lastIndex = 0;
@@ -309,9 +310,11 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
     do {
       prev = s;
       s = s.replace(/^[\s,，。;；:：、]+/, "")
-           .replace(/^(各位同学|同学们|大家|注意|通知|提醒|请|务必)[:：,，]?/, "")
+           .replace(/^(各位同学|同学们|大家|注意|通知|提醒|请|务必|现|另)[:：,，]?/, "")
            .replace(/^关于[^：:]{0,24}[：:]/, "");
     } while (s !== prev);
+    // 砍掉「，主题…」「，详情…」这类补充说明，它们不是事项本身
+    s = s.replace(/[，,；;](主题|详情|具体|详见|可个人|可组队|可团队|请大家|有兴趣|有意愿)[\s\S]*$/, "");
     if (s.length > 34) s = s.slice(0, 34) + "…";
     return s;
   }
@@ -407,6 +410,11 @@ details.src p { font-size: 12px; color: #777; margin: 4px 0 0; padding: 6px 8px;
         if (!title) return;
         // 「活动时间为：…」这类纯时间句，换成消息开头那句
         if (/^(活动)?时间为/.test(title) && msgTitle) title = msgTitle;
+        // 「详情见通知链接，有意参赛同学请于 11 月 7 日前…」也是补充说明，
+        // 真正的主题在消息开头，换成 msgTitle
+        if (msgTitle && /^(详情见|详见|有意|请于|请|如需|如有|想要|需要报名|本条|本通知|报名)/.test(title)) {
+          title = msgTitle;
+        }
         // 去掉标题开头的日期（下面已经单独显示了日期）
         var stripped = title
           .replace(/^\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*[日号]?\s*(\d{1,2}\s*[:：]\s*\d{2})?\s*/, "")
