@@ -113,8 +113,8 @@
 | 成员 | GitHub | 负责 |
 |---|---|---|
 | 28-ddM | [@28-ddM](https://github.com/28-ddM) | 技术实现主线、范围与进度把控、答辩技术问题 |
-| lfl | — | 界面与交互实现、视觉与动效 |
-| zyx | — | 需求调研与文案、演示与答辩表达、测试语料整理 |
+| lfl | [@LFLlfl123](https://github.com/LFLlfl123) | 界面与交互实现、视觉与动效 |
+| zyx | [@yunye1203](https://github.com/yunye1203) | 需求调研与文案、演示与答辩表达、测试语料整理 |
 
 ## 三人怎么协作
 
@@ -150,7 +150,7 @@
 
 ## 使用了哪些 AI 工具
 
-WorkBuddy（Claude）用于代码生成、调试与文档撰写；DeepSeek `deepseek-flash` 用于运行时的待办抽取与聊天截图识别。
+WorkBuddy 用于代码生成、调试与文档撰写；DeepSeek `deepseek-flash` 用于运行时的待办抽取与聊天截图识别。
 
 说明：代码由 AI 辅助生成，架构设计、提示词设计、规则逻辑、调试与集成由团队成员完成。
 
