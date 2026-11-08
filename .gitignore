@@ -18,6 +18,9 @@ build/
 key.txt
 *.key
 apikey.txt
+*.pem
+credentials*
+secrets*
 
 # 本地验证用的临时脚本与截图，只留在本机、不进公开仓库
 _*
